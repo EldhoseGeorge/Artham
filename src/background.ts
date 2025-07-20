@@ -1,4 +1,5 @@
 import { Meaning, Word, Dictionary } from "./types";
+import { stem } from "./stemmer";
 const db_name: string = "db_dictionary";
 const object_store_name: string = "engmal";
 const db_version: number = 1;
@@ -64,14 +65,32 @@ chrome.runtime.onMessage.addListener(
           const result: Word | undefined = (event.target as IDBRequest<Word>)
             .result;
           if (result) {
-            sendResponse(result.values);
+            console.log("Word found:", result);
+            sendResponse(result);
           } else {
-            sendResponse([]);
+            // stem the word and try again
+            const stemmedWord = stem(word);
+            const getStemmedRequest: IDBRequest<Word> =
+              objectStore.get(stemmedWord);
+            getStemmedRequest.onsuccess = (event) => {
+              const stemmedResult: Word | undefined = (
+                event.target as IDBRequest<Word>
+              ).result;
+              if (stemmedResult) {
+                sendResponse(stemmedResult);
+              } else {
+                // If no result found, return an empty array
+                sendResponse(undefined);
+              }
+            };
+            getStemmedRequest.onerror = (event) => {
+              console.error("Error fetching word:", event);
+              sendResponse(undefined);
+            };
           }
         };
         getRequest.onerror = (event) => {
-          console.error("Error fetching word:", event);
-          sendResponse([]);
+          sendResponse(undefined);
         };
       };
       return true; // Indicates that the response will be sent asynchronously

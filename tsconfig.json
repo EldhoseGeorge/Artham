@@ -1,6 +1,8 @@
 {
   "extends": "@tsconfig/recommended/tsconfig.json",
   "compilerOptions": {
-    "sourceMap": true
+    "sourceMap": true,
+    "target": "es2022",
+    "lib": ["es2022", "dom"]
   }
 }

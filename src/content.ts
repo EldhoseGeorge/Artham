@@ -1,13 +1,15 @@
-import { Meaning, type_map } from "./types";
+import { Word, type_map } from "./types";
 const tooltipID = "dictionary-tooltip";
 
 function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   const block = document.createElement("div");
   block.style.marginBottom = "10px";
   block.style.padding = "5px";
-  const typeLabel = document.createElement("strong");
+  const typeLabel = document.createElement("span");
   typeLabel.textContent = type;
   typeLabel.style.display = "block";
+  typeLabel.style.color = "#666";
+  typeLabel.style.fontStyle = "italic";
   typeLabel.style.marginBottom = "5px";
   block.appendChild(typeLabel);
   const meaningBloock = document.createElement("div");
@@ -28,7 +30,7 @@ function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   return block;
 }
 
-function createTooltip(data: Meaning[], id: string): HTMLElement {
+function createTooltip(data: Word, id: string): HTMLElement {
   const tooltip = document.createElement("div");
 
   tooltip.id = id;
@@ -38,14 +40,22 @@ function createTooltip(data: Meaning[], id: string): HTMLElement {
   tooltip.style.border = "1px solid #ccc";
   tooltip.style.padding = "10px";
   tooltip.style.zIndex = "1000";
-  tooltip.style.backgroundColor = "rgb(123, 211, 234)";
+  tooltip.style.backgroundColor = "#F2F2F2";
+  tooltip.style.color = "#222831";
   tooltip.style.color = "black";
   tooltip.style.borderRadius = "5px";
+  tooltip.style.maxWidth = "400px";
+  tooltip.style.maxWidth = "400px";
+  tooltip.style.overflowY = "auto";
   tooltip.style.fontFamily =
     "'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif";
+  const word = document.createElement("strong");
+  word.textContent = data.source[0].toUpperCase() + data.source.slice(1);
+  word.style.textAlign = "center";
+  tooltip.appendChild(word);
   let sortedMeaning: { [key: string]: string[] } = {};
 
-  data.forEach((word) => {
+  data.values.forEach((word) => {
     let _type: string = type_map[word.type] || word.type;
     if (!sortedMeaning[_type]) {
       sortedMeaning[_type] = [];
@@ -75,14 +85,14 @@ document.addEventListener("mouseup", (event) => {
   ) {
     const selectedText = selection.toString().trim();
 
-    const response: Promise<Meaning[]> = chrome.runtime.sendMessage({
+    const response: Promise<Word> = chrome.runtime.sendMessage({
       action: "getMeaning",
       word: selectedText,
     });
 
     response.then((result) => {
-      if (result.length > 0) {
-        //console.log("Received meaning:", result);
+      if (result) {
+        console.log("Received meaning:", result);
 
         const tooltip = createTooltip(result, tooltipID);
         document.documentElement.lang = "ml";
@@ -93,9 +103,9 @@ document.addEventListener("mouseup", (event) => {
           tooltip.style.top = `${rect.bottom + window.scrollY}px`;
           console.log(tooltip);
         }
-        setTimeout(() => {
-          document.body.removeChild(tooltip);
-        }, 5000);
+        // setTimeout(() => {
+        //   document.body.removeChild(tooltip);
+        // }, 5000);
         // Remove after 5 seconds
       }
     });
