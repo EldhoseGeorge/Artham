@@ -1,4 +1,5 @@
 import { Word, type_map } from "./types";
+import { stem } from "./stemmer";
 const tooltipID = "dictionary-tooltip";
 
 function createWorldBlock(type: string, meanings: string[]): HTMLElement {
@@ -30,13 +31,11 @@ function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   return block;
 }
 
-function createTooltip(data: Word, id: string): HTMLElement {
+function createTooltip(data: Word): HTMLElement {
   const tooltip = document.createElement("div");
 
-  tooltip.id = id;
   tooltip.style.display = "flex";
   tooltip.style.flexDirection = "column";
-  tooltip.style.position = "absolute";
   tooltip.style.border = "1px solid #ccc";
   tooltip.style.padding = "10px";
   tooltip.style.zIndex = "1000";
@@ -44,9 +43,7 @@ function createTooltip(data: Word, id: string): HTMLElement {
   tooltip.style.color = "#222831";
   tooltip.style.color = "black";
   tooltip.style.borderRadius = "5px";
-  tooltip.style.maxWidth = "400px";
-  tooltip.style.maxWidth = "400px";
-  tooltip.style.overflowY = "auto";
+
   tooltip.style.fontFamily =
     "'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif";
   const word = document.createElement("strong");
@@ -72,41 +69,74 @@ function createTooltip(data: Word, id: string): HTMLElement {
 }
 
 document.addEventListener("mouseup", (event) => {
+  //console.log("Mouse up event detected:", event);
+  const target = event.target as HTMLElement;
+  console.log("Event target:", target);
+  if (
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.isContentEditable
+  ) {
+    return; // Ignore if the target is an input or textarea or a content editable element
+  }
+
+  let selection = window.getSelection();
   const existingtooltip = document.getElementById(tooltipID);
-  if (existingtooltip) {
+  if (existingtooltip && !existingtooltip?.contains(target)) {
     existingtooltip.remove(); // Remove existing tooltip if present
   }
-  //console.log("Mouse up event detected:", event);
-  const selection = window.getSelection();
+  if (existingtooltip && existingtooltip?.contains(target)) {
+    selection = null; // selection to null to prevent recursive tooltip calling
+  }
   if (
     selection &&
     selection.toString().trim() != "" &&
     selection.toString().trim().split(" ").length === 1
   ) {
     const selectedText = selection.toString().trim();
+    console.log(
+      "Selected text:",
+      selectedText,
 
-    const response: Promise<Word> = chrome.runtime.sendMessage({
+      stem(selectedText)
+    );
+
+    const response: Promise<Word[]> = chrome.runtime.sendMessage({
       action: "getMeaning",
       word: selectedText,
     });
 
-    response.then((result) => {
-      if (result) {
-        console.log("Received meaning:", result);
+    response.then((results) => {
+      if (results.length > 0) {
+        console.log("Received meaning:", results);
+        const tooltipdiv = document.createElement("div");
+        tooltipdiv.id = tooltipID;
+        tooltipdiv.style.display = "flex";
 
-        const tooltip = createTooltip(result, tooltipID);
+        tooltipdiv.style.flexDirection = "column";
+        tooltipdiv.style.overflow = "auto";
+        tooltipdiv.style.maxHeight = "300px";
+        tooltipdiv.style.maxWidth = "400px";
+
+        tooltipdiv.style.position = "absolute";
+
+        for (const result of results) {
+          const tooltip = createTooltip(result);
+          tooltipdiv.appendChild(tooltip);
+        }
+
         document.documentElement.lang = "ml";
-        document.body.appendChild(tooltip);
+        document.body.appendChild(tooltipdiv);
         if (selection.rangeCount > 0) {
           const rect = selection.getRangeAt(0).getBoundingClientRect();
-          tooltip.style.left = `${rect.left}px`;
-          tooltip.style.top = `${rect.bottom + window.scrollY}px`;
-          console.log(tooltip);
+          tooltipdiv.style.left = `${rect.left}px`;
+          tooltipdiv.style.top = `${rect.bottom + window.scrollY}px`;
+          console.log(tooltipdiv);
         }
-        // setTimeout(() => {
-        //   document.body.removeChild(tooltip);
-        // }, 5000);
-        // Remove after 5 seconds
+        setTimeout(() => {
+          document.body.removeChild(tooltipdiv);
+        }, 10000);
+        //Remove after 5 seconds
       }
     });
   }

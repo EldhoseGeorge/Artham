@@ -3,6 +3,7 @@ export interface Meaning {
   meaning: string;
 }
 export interface Word {
+  stem: string;
   source: string;
   values: Meaning[];
 }
