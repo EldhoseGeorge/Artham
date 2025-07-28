@@ -1,7 +1,6 @@
+import CopyWebpackPlugin from "copy-webpack-plugin";
 import path from "path";
 import webpack from "webpack";
-import CopyWebpackPlugin from "copy-webpack-plugin";
-import { types } from "util";
 
 const config: webpack.Configuration = {
   entry: {
@@ -9,6 +8,7 @@ const config: webpack.Configuration = {
     content: "./src/content.ts",
     popup: "./src/popup.ts",
     types: "./src/types.ts",
+    stemmer: "./src/stemmer.ts",
   },
   resolve: {
     extensions: [".ts"],
