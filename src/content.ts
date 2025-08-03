@@ -1,5 +1,4 @@
 import { Word, type_map } from "./types";
-import { stem } from "./stemmer";
 const tooltipID = "dictionary-tooltip";
 
 function createWorldBlock(type: string, meanings: string[]): HTMLElement {
@@ -68,14 +67,51 @@ function createTooltip(data: Word): HTMLElement {
   return tooltip;
 }
 
-document.addEventListener("mouseup", (event) => {
-  //console.log("Mouse up event detected:", event);
+function showTooltip(results: Word[], selection: Selection): void {
+  console.log("selection", selection);
+  const tooltipdiv = document.createElement("div");
+  tooltipdiv.id = tooltipID;
+  tooltipdiv.style.display = "flex";
+
+  tooltipdiv.style.flexDirection = "column";
+  tooltipdiv.style.overflow = "auto";
+  tooltipdiv.style.maxHeight = "300px";
+  tooltipdiv.style.maxWidth = "400px";
+
+  tooltipdiv.style.position = "absolute";
+
+  for (const result of results) {
+    const tooltip = createTooltip(result);
+    tooltipdiv.appendChild(tooltip);
+  }
+
+  console.log("Tooltip created:", tooltipdiv);
+
+  document.documentElement.lang = "ml";
+  document.body.appendChild(tooltipdiv);
+  if (selection.rangeCount > 0) {
+    const rect = selection.getRangeAt(0).getBoundingClientRect();
+    tooltipdiv.style.left = `${rect.left}px`;
+    tooltipdiv.style.top = `${rect.bottom + window.scrollY}px`;
+    console.log(tooltipdiv);
+  }
+  setTimeout(() => {
+    document.body.removeChild(tooltipdiv);
+  }, 10000);
+  //Remove after 5 seconds
+}
+
+document.addEventListener("mouseup", async (event) => {
+  console.log("Mouse up event detected:", event);
   const target = event.target as HTMLElement;
-  console.log("Event target:", target);
+
+  const selectedOption = await chrome.storage.local.get("selectedOption");
+
   if (
     target.tagName === "INPUT" ||
     target.tagName === "TEXTAREA" ||
-    target.isContentEditable
+    target.isContentEditable ||
+    selectedOption.selectedOption !== "select_word"
   ) {
     return; // Ignore if the target is an input or textarea or a content editable element
   }
@@ -94,12 +130,6 @@ document.addEventListener("mouseup", (event) => {
     selection.toString().trim().split(" ").length === 1
   ) {
     const selectedText = selection.toString().trim();
-    console.log(
-      "Selected text:",
-      selectedText,
-
-      stem(selectedText)
-    );
 
     const response: Promise<Word[]> = chrome.runtime.sendMessage({
       action: "getMeaning",
@@ -108,36 +138,14 @@ document.addEventListener("mouseup", (event) => {
 
     response.then((results) => {
       if (results.length > 0) {
-        console.log("Received meaning:", results);
-        const tooltipdiv = document.createElement("div");
-        tooltipdiv.id = tooltipID;
-        tooltipdiv.style.display = "flex";
-
-        tooltipdiv.style.flexDirection = "column";
-        tooltipdiv.style.overflow = "auto";
-        tooltipdiv.style.maxHeight = "300px";
-        tooltipdiv.style.maxWidth = "400px";
-
-        tooltipdiv.style.position = "absolute";
-
-        for (const result of results) {
-          const tooltip = createTooltip(result);
-          tooltipdiv.appendChild(tooltip);
-        }
-
-        document.documentElement.lang = "ml";
-        document.body.appendChild(tooltipdiv);
-        if (selection.rangeCount > 0) {
-          const rect = selection.getRangeAt(0).getBoundingClientRect();
-          tooltipdiv.style.left = `${rect.left}px`;
-          tooltipdiv.style.top = `${rect.bottom + window.scrollY}px`;
-          console.log(tooltipdiv);
-        }
-        setTimeout(() => {
-          document.body.removeChild(tooltipdiv);
-        }, 10000);
-        //Remove after 5 seconds
+        showTooltip(results, selection);
       }
     });
+  }
+});
+
+chrome.runtime.onMessage.addListener((request) => {
+  if (request.action === "showTooltip" && request.data) {
+    showTooltip(request.data, window.getSelection() as Selection);
   }
 });
