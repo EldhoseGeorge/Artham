@@ -3,7 +3,8 @@ import { stem } from "./stemmer";
 import Fuse from "fuse.js";
 const DB_NAME: string = "db_dictionary";
 const OBJECT_STORE_NAME: string = "engmal";
-const DB_VERSION: number = 6;
+const FAV_OBJECT_STORE_NAME = "fav";
+const DB_VERSION: number = 7;
 let DB_INSTANCE: IDBDatabase | null = null;
 
 function getDictionaryData(): Promise<Dictionary> {
@@ -60,6 +61,79 @@ function DBinit(event: IDBVersionChangeEvent) {
       });
     });
   };
+  const favObjectStore: IDBObjectStore = db.createObjectStore(
+    FAV_OBJECT_STORE_NAME,
+    { keyPath: "word" }
+  );
+}
+
+function isFavWord(word: string): Promise<boolean> {
+  return new Promise<boolean>((resolve, reject) => {
+    getDB().then((db: IDBDatabase) => {
+      const transaction: IDBTransaction = db.transaction(
+        FAV_OBJECT_STORE_NAME,
+        "readonly"
+      );
+      const objectStore: IDBObjectStore = transaction.objectStore(
+        FAV_OBJECT_STORE_NAME
+      );
+      const getRequest: IDBRequest = objectStore.get(word);
+      getRequest.onsuccess = (event) => {
+        const result: Word | undefined = (event.target as IDBRequest<Word>)
+          .result;
+        if (result) {
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      };
+      getRequest.onerror = (event) => {
+        console.error("Error fetching word:", event);
+        reject((event.target as IDBRequest).error);
+      };
+    });
+  });
+}
+function removeFav(word: string): Promise<boolean> {
+  return new Promise<boolean>((resolve, reject) => {
+    getDB().then((db: IDBDatabase) => {
+      const transaction: IDBTransaction = db.transaction(
+        FAV_OBJECT_STORE_NAME,
+        "readwrite"
+      );
+      const objectStore: IDBObjectStore = transaction.objectStore(
+        FAV_OBJECT_STORE_NAME
+      );
+      const getRequest: IDBRequest = objectStore.delete(word);
+      getRequest.onsuccess = () => resolve(false);
+      getRequest.onerror = (event) => {
+        console.error("Error fetching word:", event);
+        reject((event.target as IDBRequest).error);
+      };
+    });
+  });
+}
+function addFav(word: string): Promise<boolean> {
+  return new Promise<boolean>((resolve, reject) => {
+    getDB().then((db: IDBDatabase) => {
+      const transaction: IDBTransaction = db.transaction(
+        FAV_OBJECT_STORE_NAME,
+        "readwrite"
+      );
+      const objectStore: IDBObjectStore = transaction.objectStore(
+        FAV_OBJECT_STORE_NAME
+      );
+      const getRequest: IDBRequest = objectStore.add({
+        word: word,
+        time: Date.now(),
+      });
+      getRequest.onsuccess = () => resolve(true);
+      getRequest.onerror = (event) => {
+        console.error("Error fetching word:", event);
+        reject((event.target as IDBRequest).error);
+      };
+    });
+  });
 }
 
 function queryDictionary(
@@ -143,6 +217,27 @@ chrome.runtime.onMessage.addListener(
         }
       })();
       return true; // Indicates that the response will be sent asynchronously
+    } else if (request.action == "isfav") {
+      (async () => {
+        const res = await isFavWord(request.word);
+        sendResponse(res);
+      })();
+      return true;
+    } else if (request.action == "fav") {
+      (async () => {
+        const isfav = await isFavWord(request.word);
+        console.log(isfav);
+        if (isfav) {
+          const res = await removeFav(request.word);
+
+          sendResponse(res);
+        } else {
+          const res = await addFav(request.word);
+
+          sendResponse(res);
+        }
+      })();
+      return true;
     }
   }
 );
