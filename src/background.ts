@@ -5,6 +5,9 @@ const DB_NAME: string = "db_dictionary";
 const OBJECT_STORE_NAME: string = "engmal";
 const FAV_OBJECT_STORE_NAME = "fav";
 const DB_VERSION: number = 7;
+const TOP_N = 5;
+const FUZZY_THRESHOLD = 0.4;
+const MIN_LENGTH = 6;
 let DB_INSTANCE: IDBDatabase | null = null;
 
 function getDictionaryData(): Promise<Dictionary> {
@@ -129,11 +132,14 @@ function queryDictionaryByWordRange(
           if (items && items.length > 0) {
             const search = new Fuse(items, {
               keys: ["source"],
-              threshold: 0.6,
+              threshold: FUZZY_THRESHOLD,
               includeScore: true,
             });
             const fuzzy_result = search.search(orginalWord);
-            const topResult: Word[] = fuzzy_result.map((item) => item.item);
+            console.log(fuzzy_result);
+            const topResult: Word[] = fuzzy_result
+              .slice(0, TOP_N)
+              .map((item) => item.item);
             resolve(topResult);
           } else {
             resolve(undefined);
@@ -157,11 +163,13 @@ function queryDictionaryByStem(word: string): Promise<Word[] | undefined> {
       if (result && result.length > 0) {
         const search = new Fuse(result, {
           keys: ["source"],
-          threshold: 0.6,
+          threshold: FUZZY_THRESHOLD,
           includeScore: true,
         });
         const fuzzy_result = search.search(word);
-        const topResult: Word[] = fuzzy_result.map((item) => item.item);
+        const topResult: Word[] = fuzzy_result
+          .slice(0, TOP_N)
+          .map((item) => item.item);
         return topResult;
       }
       return undefined;
@@ -209,7 +217,7 @@ chrome.runtime.onMessage.addListener(
         if (result) {
           console.log(result);
           sendResponse(result);
-        } else {
+        } else if (word.length >= MIN_LENGTH) {
           while (currentWord.length > Math.trunc(word.length / 2)) {
             // We try exact match first since most queries succeed directly.
             // Stem search is used only if exact match fails.
