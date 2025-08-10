@@ -12,7 +12,21 @@ function getDictionaryData(): Promise<Dictionary> {
     .then((response) => response.json())
     .then((data: Dictionary) => data);
 }
-
+function withStore<T>(
+  objStoreName: string,
+  mode: IDBTransactionMode,
+  callback: (store: IDBObjectStore) => IDBRequest<T>
+): Promise<void | T> {
+  return getDB().then((db) => {
+    return new Promise<T>((resolve, reject) => {
+      const tx = db.transaction(objStoreName, mode);
+      const store = tx.objectStore(objStoreName);
+      const request = callback(store);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  });
+}
 function getDB(): Promise<IDBDatabase> {
   //a singleton class to return the db instance
   return new Promise((resolve, reject) => {
@@ -23,8 +37,12 @@ function getDB(): Promise<IDBDatabase> {
       request.onupgradeneeded = (event) => {
         DBinit(event);
       };
+      request.onblocked = () => {
+        console.log("db upgrade blocked");
+      };
       request.onsuccess = (event) => {
         DB_INSTANCE = request.result;
+        DB_INSTANCE.onclose = () => (DB_INSTANCE = null);
         resolve(DB_INSTANCE);
       };
       request.onerror = (event) => {
@@ -32,6 +50,7 @@ function getDB(): Promise<IDBDatabase> {
           "Database error:",
           (event?.target as IDBOpenDBRequest)?.error?.message
         );
+        DB_INSTANCE = null;
         reject((event?.target as IDBOpenDBRequest)?.error?.message);
       };
     }
@@ -68,114 +87,104 @@ function DBinit(event: IDBVersionChangeEvent) {
 }
 
 function isFavWord(word: string): Promise<boolean> {
-  return new Promise<boolean>((resolve, reject) => {
-    getDB().then((db: IDBDatabase) => {
-      const transaction: IDBTransaction = db.transaction(
-        FAV_OBJECT_STORE_NAME,
-        "readonly"
-      );
-      const objectStore: IDBObjectStore = transaction.objectStore(
-        FAV_OBJECT_STORE_NAME
-      );
-      const getRequest: IDBRequest = objectStore.get(word);
-      getRequest.onsuccess = (event) => {
-        const result: Word | undefined = (event.target as IDBRequest<Word>)
-          .result;
-        if (result) {
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      };
-      getRequest.onerror = (event) => {
-        console.error("Error fetching word:", event);
-        reject((event.target as IDBRequest).error);
-      };
-    });
-  });
+  return withStore<Word>(FAV_OBJECT_STORE_NAME, "readonly", (store) =>
+    store.get(word)
+  ).then((result) => !!result);
 }
+
 function removeFav(word: string): Promise<boolean> {
-  return new Promise<boolean>((resolve, reject) => {
-    getDB().then((db: IDBDatabase) => {
-      const transaction: IDBTransaction = db.transaction(
-        FAV_OBJECT_STORE_NAME,
-        "readwrite"
-      );
-      const objectStore: IDBObjectStore = transaction.objectStore(
-        FAV_OBJECT_STORE_NAME
-      );
-      const getRequest: IDBRequest = objectStore.delete(word);
-      getRequest.onsuccess = () => resolve(false);
-      getRequest.onerror = (event) => {
-        console.error("Error fetching word:", event);
-        reject((event.target as IDBRequest).error);
-      };
-    });
-  });
+  return withStore<undefined>(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
+    store.delete(word)
+  ).then(() => false);
 }
 function addFav(word: string): Promise<boolean> {
-  return new Promise<boolean>((resolve, reject) => {
-    getDB().then((db: IDBDatabase) => {
-      const transaction: IDBTransaction = db.transaction(
-        FAV_OBJECT_STORE_NAME,
-        "readwrite"
-      );
-      const objectStore: IDBObjectStore = transaction.objectStore(
-        FAV_OBJECT_STORE_NAME
-      );
-      const getRequest: IDBRequest = objectStore.add({
-        word: word,
-        time: Date.now(),
-      });
-      getRequest.onsuccess = () => resolve(true);
-      getRequest.onerror = (event) => {
-        console.error("Error fetching word:", event);
-        reject((event.target as IDBRequest).error);
-      };
-    });
-  });
+  return withStore(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
+    store.put({
+      word: word,
+      time: Date.now(),
+    })
+  ).then(() => true);
 }
-
-function queryDictionary(
+function queryDictionaryByWordRange(
   word: string,
-  index_name: boolean = false
+  orginalWord: string
 ): Promise<Word[] | undefined> {
-  console.log("Querying dictionary for word:", word);
-  return new Promise<Word[] | undefined>((resolve, reject) => {
-    getDB().then((db: IDBDatabase) => {
-      const transaction: IDBTransaction = db.transaction(
-        OBJECT_STORE_NAME,
-        "readonly"
-      );
-      const objectStore: IDBObjectStore =
-        transaction.objectStore(OBJECT_STORE_NAME);
-      if (index_name) {
-        const index: IDBIndex = objectStore.index("stem");
-        index.getAll(word).onsuccess = (event) => {
-          const result: Word[] | undefined = (
-            event.target as IDBRequest<Word[]>
-          ).result;
+  return getDB().then((db) => {
+    return new Promise<Word[] | undefined>((resolve, reject) => {
+      const tx = db.transaction(OBJECT_STORE_NAME, "readonly");
+      const store = tx.objectStore(OBJECT_STORE_NAME);
+      const bound = IDBKeyRange.bound(word, word + "\uffff", true);
+      const request = store.openCursor(bound);
 
-          resolve(result || undefined);
-        };
-      } else {
-        const getRequest: IDBRequest<Word> = objectStore.get(word);
-        getRequest.onsuccess = (event) => {
-          const result: Word | undefined = (event.target as IDBRequest<Word>)
-            .result;
-          if (result) {
-            resolve([result]);
+      const items: Word[] = [];
+
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest)
+          .result as IDBCursorWithValue | null;
+        if (cursor) {
+          items.push(cursor.value as Word);
+          cursor.continue(); // move to next record
+        } else {
+          console.log(cursor);
+          if (items && items.length > 0) {
+            const search = new Fuse(items, {
+              keys: ["source"],
+              threshold: 0.6,
+              includeScore: true,
+            });
+            const fuzzy_result = search.search(orginalWord);
+            const topResult: Word[] = fuzzy_result.map((item) => item.item);
+            resolve(topResult);
           } else {
             resolve(undefined);
           }
-        };
-        getRequest.onerror = (event) => {
-          console.error("Error fetching word:", event);
-          resolve(undefined);
-        };
-      }
+        }
+      };
+
+      request.onerror = () => {
+        reject(request.error);
+      };
     });
   });
+}
+
+function queryDictionaryByStem(word: string): Promise<Word[] | undefined> {
+  const stemmedWord = stem(word);
+  return withStore<Word[]>(OBJECT_STORE_NAME, "readonly", (store) =>
+    store.index("stem").getAll(stemmedWord)
+  )
+    .then((result) => {
+      if (result && result.length > 0) {
+        const search = new Fuse(result, {
+          keys: ["source"],
+          threshold: 0.6,
+          includeScore: true,
+        });
+        const fuzzy_result = search.search(word);
+        const topResult: Word[] = fuzzy_result.map((item) => item.item);
+        return topResult;
+      }
+      return undefined;
+    })
+    .catch((err) => {
+      console.error("Error fetching word:", err);
+      return undefined;
+    });
+}
+function queryDictionaryByword(word: string): Promise<Word[] | undefined> {
+  return withStore<Word>(OBJECT_STORE_NAME, "readonly", (store) =>
+    store.get(word)
+  )
+    .then((result) => {
+      if (result) {
+        return [result];
+      }
+      return undefined;
+    })
+    .catch((err) => {
+      console.error("Error fetching word:", err);
+      return undefined;
+    });
 }
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -191,29 +200,26 @@ chrome.runtime.onMessage.addListener(
       (async () => {
         console.log("Received request for word:", request.word);
         const word = request.word.toLowerCase().trim();
-        const result: Word | undefined | Word[] = await queryDictionary(word);
-        console.log(result);
+        let result: undefined | Word[] = [];
+        let currentWord: string = word;
+        result =
+          (await queryDictionaryByword(currentWord)) ||
+          (await queryDictionaryByStem(currentWord)) ||
+          undefined;
         if (result) {
-          sendResponse(result as Word[]);
+          console.log(result);
+          sendResponse(result);
         } else {
-          const stemmedWord = stem(word);
-          const stemmedResult: Word[] | undefined = await queryDictionary(
-            stemmedWord,
+          while (currentWord.length > Math.trunc(word.length / 2)) {
+            // We try exact match first since most queries succeed directly.
+            // Stem search is used only if exact match fails.
+            // This avoids extra IndexedDB calls in the common case.
 
-            true
-          );
-          if (stemmedResult) {
-            const search = new Fuse(stemmedResult, {
-              keys: ["source"],
-              threshold: 0.6,
-              includeScore: true,
-            });
-            const fuzzy_result = search.search(word);
-            const result: Word[] = fuzzy_result.map((item) => item.item);
-            sendResponse(result);
-          } else {
-            sendResponse([]);
+            currentWord = currentWord.slice(0, currentWord.length - 1);
+            result = await queryDictionaryByWordRange(currentWord, word);
+            if (result) break;
           }
+          sendResponse(result || []);
         }
       })();
       return true; // Indicates that the response will be sent asynchronously
