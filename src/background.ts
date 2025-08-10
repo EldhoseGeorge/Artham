@@ -1,11 +1,24 @@
-import { Meaning, Word, Dictionary } from "./types";
-import { stem } from "./stemmer";
 import Fuse from "fuse.js";
+import { stem } from "./stemmer";
+import { Dictionary, Word } from "./types";
 const DB_NAME: string = "db_dictionary";
 const OBJECT_STORE_NAME: string = "engmal";
 const FAV_OBJECT_STORE_NAME = "fav";
-const DB_VERSION: number = 7;
+const DB_VERSION: number = 1;
 let DB_INSTANCE: IDBDatabase | null = null;
+const SELECTED_OPTION_KEY = "dictionaryStatus";
+const SELECTED_OPTION_KEY_DEFAULT = true;
+
+function localStorageInit() {
+  chrome.storage.local.get([SELECTED_OPTION_KEY], (result) => {
+    if (result[SELECTED_OPTION_KEY] === undefined) {
+      chrome.storage.local.set({
+        [SELECTED_OPTION_KEY]: SELECTED_OPTION_KEY_DEFAULT,
+      });
+    }
+  });
+}
+localStorageInit();
 
 function getDictionaryData(): Promise<Dictionary> {
   return fetch(chrome.runtime.getURL("/data/enml.json"))
@@ -97,6 +110,7 @@ function removeFav(word: string): Promise<boolean> {
     store.delete(word)
   ).then(() => false);
 }
+
 function addFav(word: string): Promise<boolean> {
   return withStore(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
     store.put({
@@ -105,6 +119,7 @@ function addFav(word: string): Promise<boolean> {
     })
   ).then(() => true);
 }
+
 function queryDictionaryByWordRange(
   word: string,
   orginalWord: string
@@ -171,6 +186,7 @@ function queryDictionaryByStem(word: string): Promise<Word[] | undefined> {
       return undefined;
     });
 }
+
 function queryDictionaryByword(word: string): Promise<Word[] | undefined> {
   return withStore<Word>(OBJECT_STORE_NAME, "readonly", (store) =>
     store.get(word)
@@ -195,7 +211,11 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener(
-  (request: { action: string; word: string }, sender, sendResponse) => {
+  (
+    request: { action: string; word: string; option?: string },
+    sender,
+    sendResponse
+  ) => {
     if (request.action === "getMeaning") {
       (async () => {
         console.log("Received request for word:", request.word);
@@ -244,6 +264,11 @@ chrome.runtime.onMessage.addListener(
         }
       })();
       return true;
+    } else if (request.action === "storeDictionaryStatus") {
+      chrome.storage.local.set({ dictionaryStatus: request.option }, () => {});
+      return true; // Indicates that the response will be sent asynchronously
+    } else {
+      return false; // Unrecognized action
     }
   }
 );

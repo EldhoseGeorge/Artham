@@ -1,8 +1,10 @@
-import { Word, type_map } from "./types";
 import { stem } from "./stemmer";
+import { Word, type_map } from "./types";
 const tooltipID = "dictionary-tooltip";
 const FAV: string = "❤️";
 const NOT_FAV: string = "🩶";
+const SELECTED_OPTION_KEY = "dictionaryStatus";
+
 function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   const block = document.createElement("div");
   block.style.marginBottom = "10px";
@@ -103,14 +105,16 @@ function createTooltip(data: Word): HTMLElement {
   return tooltip;
 }
 
-document.addEventListener("mouseup", (event) => {
+document.addEventListener("mouseup", async (event) => {
   //console.log("Mouse up event detected:", event);
   const target = event.target as HTMLElement;
-  console.log("Event target:", target);
+  const selectedOption = await chrome.storage.local.get(SELECTED_OPTION_KEY);
+
   if (
     target.tagName === "INPUT" ||
     target.tagName === "TEXTAREA" ||
-    target.isContentEditable
+    target.isContentEditable ||
+    !JSON.parse(selectedOption.dictionaryStatus)
   ) {
     return; // Ignore if the target is an input or textarea or a content editable element
   }
