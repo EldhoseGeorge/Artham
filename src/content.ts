@@ -1,6 +1,7 @@
 import { Word, type_map } from "./types";
 const tooltipID = "dictionary-tooltip";
-
+const FAV: string = "❤️";
+const NOT_FAV: string = "🩶";
 function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   const block = document.createElement("div");
   block.style.marginBottom = "10px";
@@ -30,6 +31,16 @@ function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   return block;
 }
 
+function manageFav(item: HTMLElement, _word: string): void {
+  const response: Promise<boolean> = chrome.runtime.sendMessage({
+    action: "fav",
+    word: _word,
+  });
+  response.then((status) => {
+    console.log(status);
+    item.textContent = status ? FAV : NOT_FAV;
+  });
+}
 function createTooltip(data: Word): HTMLElement {
   const tooltip = document.createElement("div");
 
@@ -45,10 +56,34 @@ function createTooltip(data: Word): HTMLElement {
 
   tooltip.style.fontFamily =
     "'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif";
+  const WordTItle = document.createElement("div");
+  WordTItle.style.display = "flex";
+  WordTItle.style.flexDirection = "row";
+
   const word = document.createElement("strong");
   word.textContent = data.source[0].toUpperCase() + data.source.slice(1);
   word.style.textAlign = "center";
-  tooltip.appendChild(word);
+  word.style.flexGrow = "2";
+
+  WordTItle.appendChild(word);
+  const response: Promise<boolean> = chrome.runtime.sendMessage({
+    action: "isfav",
+    word: data.source,
+  });
+  response.then((isfav) => {
+    const fav = document.createElement("button");
+    fav.style.backgroundColor = "transparent";
+    fav.style.border = "none";
+    fav.style.color = "black";
+    fav.textContent = "add";
+    fav.style.textAlign = "center";
+    fav.textContent = isfav ? FAV : NOT_FAV;
+    fav.addEventListener("click", (event) => {
+      manageFav(event.target as HTMLElement, data.source);
+    });
+    WordTItle.appendChild(fav);
+  });
+  tooltip.appendChild(WordTItle);
   let sortedMeaning: { [key: string]: string[] } = {};
 
   data.values.forEach((word) => {
@@ -96,7 +131,10 @@ function showTooltip(results: Word[], selection: Selection): void {
     console.log(tooltipdiv);
   }
   setTimeout(() => {
-    document.body.removeChild(tooltipdiv);
+    const existingtooltip = document.getElementById(tooltipID);
+    if (existingtooltip) {
+      existingtooltip.remove();
+    }
   }, 10000);
   //Remove after 5 seconds
 }
