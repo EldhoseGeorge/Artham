@@ -9,26 +9,14 @@ const TOP_N = 5;
 const FUZZY_THRESHOLD = 0.4;
 const MIN_LENGTH = 6;
 let DB_INSTANCE: IDBDatabase | null = null;
-const SELECTED_OPTION_KEY = "dictionaryStatus";
-const SELECTED_OPTION_KEY_DEFAULT = true;
 
-function localStorageInit() {
-  chrome.storage.local.get([SELECTED_OPTION_KEY], (result) => {
-    if (result[SELECTED_OPTION_KEY] === undefined) {
-      chrome.storage.local.set({
-        [SELECTED_OPTION_KEY]: SELECTED_OPTION_KEY_DEFAULT,
-      });
-    }
-  });
-}
-localStorageInit();
-
-function getDictionaryData(): Promise<Dictionary> {
+async function getDictionaryData(): Promise<Dictionary> {
   return fetch(chrome.runtime.getURL("/data/enml.json"))
     .then((response) => response.json())
     .then((data: Dictionary) => data);
 }
-function withStore<T>(
+
+async function withStore<T>(
   objStoreName: string,
   mode: IDBTransactionMode,
   callback: (store: IDBObjectStore) => IDBRequest<T>
@@ -43,6 +31,7 @@ function withStore<T>(
     });
   });
 }
+
 function getDB(): Promise<IDBDatabase> {
   //a singleton class to return the db instance
   return new Promise((resolve, reject) => {
@@ -102,19 +91,19 @@ function DBinit(event: IDBVersionChangeEvent) {
   );
 }
 
-function isFavWord(word: string): Promise<boolean> {
+async function isFavWord(word: string): Promise<boolean> {
   return withStore<Word>(FAV_OBJECT_STORE_NAME, "readonly", (store) =>
     store.get(word)
   ).then((result) => !!result);
 }
 
-function removeFav(word: string): Promise<boolean> {
+async function removeFav(word: string): Promise<boolean> {
   return withStore<undefined>(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
     store.delete(word)
   ).then(() => false);
 }
 
-function addFav(word: string): Promise<boolean> {
+async function addFav(word: string): Promise<boolean> {
   return withStore(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
     store.put({
       word: word,
@@ -123,7 +112,7 @@ function addFav(word: string): Promise<boolean> {
   ).then(() => true);
 }
 
-function queryDictionaryByWordRange(
+async function queryDictionaryByWordRange(
   word: string,
   orginalWord: string
 ): Promise<Word[] | undefined> {
@@ -169,7 +158,9 @@ function queryDictionaryByWordRange(
   });
 }
 
-function queryDictionaryByStem(word: string): Promise<Word[] | undefined> {
+async function queryDictionaryByStem(
+  word: string
+): Promise<Word[] | undefined> {
   const stemmedWord = stem(word);
   return withStore<Word[]>(OBJECT_STORE_NAME, "readonly", (store) =>
     store.index("stem").getAll(stemmedWord)
@@ -195,7 +186,9 @@ function queryDictionaryByStem(word: string): Promise<Word[] | undefined> {
     });
 }
 
-function queryDictionaryByword(word: string): Promise<Word[] | undefined> {
+async function queryDictionaryByword(
+  word: string
+): Promise<Word[] | undefined> {
   return withStore<Word>(OBJECT_STORE_NAME, "readonly", (store) =>
     store.get(word)
   )
@@ -272,9 +265,6 @@ chrome.runtime.onMessage.addListener(
         }
       })();
       return true;
-    } else if (request.action === "storeDictionaryStatus") {
-      chrome.storage.local.set({ dictionaryStatus: request.option }, () => {});
-      return true; // Indicates that the response will be sent asynchronously
     } else {
       return false; // Unrecognized action
     }

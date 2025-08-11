@@ -4,7 +4,6 @@ import { Word, type_map } from "./types";
 const tooltipID = "dictionary-tooltip";
 const FAV: string = "❤️";
 const NOT_FAV: string = "🩶";
-const SELECTED_OPTION_KEY = "dictionaryStatus";
 
 function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   const block = document.createElement("div");
@@ -38,6 +37,7 @@ function manageFav(item: HTMLElement, _word: string): void {
     item.textContent = status ? FAV : NOT_FAV;
   });
 }
+
 function createTooltip(data: Word): HTMLElement {
   const tooltip = document.createElement("div");
   tooltip.classList.add("tooltip");
@@ -84,15 +84,18 @@ function createTooltip(data: Word): HTMLElement {
 document.addEventListener("mouseup", async (event) => {
   //console.log("Mouse up event detected:", event);
   const target = event.target as HTMLElement;
-  const selectedOption = await chrome.storage.local.get(SELECTED_OPTION_KEY);
+  const { disabledDomains = {} } = await chrome.storage.local.get([
+    "disabledDomains",
+  ]);
+  const currentDomain = window.location.hostname.replace(/^www\./, "");
 
   if (
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
+    target.tagName === "INPUT" || // Ignore if the target is an input or
+    target.tagName === "TEXTAREA" || // textarea or a content editable element
     target.isContentEditable ||
-    !JSON.parse(selectedOption.dictionaryStatus)
+    disabledDomains[currentDomain]
   ) {
-    return; // Ignore if the target is an input or textarea or a content editable element
+    return;
   }
 
   let selection = window.getSelection();

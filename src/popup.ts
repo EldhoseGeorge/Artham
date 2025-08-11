@@ -1,43 +1,61 @@
 // Wait for DOM to load
 document.addEventListener("DOMContentLoaded", () => {
-  // Get all radio buttons with name 'enable_option'
-  const radios = document.querySelectorAll<HTMLInputElement>(
-    'input[name="dictionary-status"]'
-  );
+  const form = document.getElementById("dict-form");
+  const domainSpan = document.getElementById("domain-name");
+  const toggle = document.getElementById("dict-toggle") as HTMLInputElement;
+  const label = document.getElementById("toggle-label");
+  let currentDomain = "";
 
-  // Fetch stored value and preselect the radio button
-  chrome.storage.local.get("dictionaryStatus", (data) => {
-    const storedValue = data.dictionaryStatus;
+  // Fetch and display the domain name of the current tab
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs[0];
+    if (tab && tab.url && domainSpan && form) {
+      try {
+        const url = new URL(tab.url);
 
-    if (storedValue) {
-      const radioToSelect = Array.from(radios).find(
-        (radio) => radio.value === storedValue
-      );
-      if (radioToSelect) {
-        radioToSelect.checked = true;
-        console.log("Preselected radio:", radioToSelect.value);
+        // Check if it's a regular web page (not chrome://, chrome-extension://, etc.)
+        if (url.protocol === "http:" || url.protocol === "https:") {
+          currentDomain = url.hostname.replace(/^www\./, "");
+          domainSpan.textContent = currentDomain;
+          form.style.display = "flex";
+
+          // Fetch per-domain setting from storage
+          chrome.storage.local.get(["disabledDomains"], (data) => {
+            const disabledDomains = data.disabledDomains || {};
+            const isDisabled = !disabledDomains[currentDomain];
+            toggle.checked = isDisabled; // checked means enabled
+            if (label) label.textContent = isDisabled ? "ENABLED" : "DISABLED";
+          });
+        } else {
+          form.style.display = "none";
+        }
+      } catch (e) {
+        domainSpan.textContent = "";
+        if (label) label.textContent = "";
       }
     }
   });
 
-  // Function to get the currently selected value
-  function getSelectedOption(): string | null {
-    const checked = Array.from(radios).find((radio) => radio.checked);
-    return checked ? checked.value : null;
-  }
+  // Listen for toggle changes
+  toggle.addEventListener("change", () => {
+    if (!currentDomain) return;
+    // checked means enabled
+    const isEnabled = toggle.checked;
 
-  // Listen for changes on any radio button
-  radios.forEach((radio) => {
-    radio.addEventListener("change", () => {
-      const selected = getSelectedOption();
-      console.log("Selected option:", selected);
-      chrome.runtime.sendMessage({
-        action: "storeDictionaryStatus",
-        option: selected,
-      });
+    // Update label
+    if (label) label.textContent = isEnabled ? "ENABLED" : "DISABLED";
+
+    // Update storage
+    chrome.storage.local.get(["disabledDomains"], (data) => {
+      const disabledDomains = data.disabledDomains || {};
+      if (!isEnabled) {
+        // Disabled: add to disabledDomains
+        disabledDomains[currentDomain] = true;
+      } else {
+        // Enabled: remove from disabledDomains
+        delete disabledDomains[currentDomain];
+      }
+      chrome.storage.local.set({ disabledDomains });
     });
   });
-
-  // Optionally, log the initial value
-  console.log("Initial selected option:", getSelectedOption());
 });
