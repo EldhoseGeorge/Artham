@@ -212,11 +212,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener(
-  (
-    request: { action: string; word: string; option?: string },
-    sender,
-    sendResponse
-  ) => {
+  (request: { action: string; word: string }, sender, sendResponse) => {
     if (request.action === "getMeaning") {
       (async () => {
         console.log("Received request for word:", request.word);
