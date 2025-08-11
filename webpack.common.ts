@@ -9,6 +9,7 @@ const config: webpack.Configuration = {
     popup: "./src/popup.ts",
     types: "./src/types.ts",
     stemmer: "./src/stemmer.ts",
+    style: "./src/style.ts",
   },
   resolve: {
     extensions: [".ts"],

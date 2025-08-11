@@ -1,4 +1,5 @@
 import { stem } from "./stemmer";
+import { style } from "./style";
 import { Word, type_map } from "./types";
 const tooltipID = "dictionary-tooltip";
 const FAV: string = "❤️";
@@ -7,27 +8,20 @@ const SELECTED_OPTION_KEY = "dictionaryStatus";
 
 function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   const block = document.createElement("div");
-  block.style.marginBottom = "10px";
-  block.style.padding = "5px";
+  block.classList.add("wordblock");
+
   const typeLabel = document.createElement("span");
-  typeLabel.textContent = type;
-  typeLabel.style.display = "block";
-  typeLabel.style.color = "#666";
-  typeLabel.style.fontStyle = "italic";
-  typeLabel.style.marginBottom = "5px";
+  typeLabel.classList.add("label");
+
   block.appendChild(typeLabel);
   const meaningBloock = document.createElement("div");
-  meaningBloock.style.marginLeft = "10px";
-  meaningBloock.style.display = "flex";
-  meaningBloock.style.flexDirection = "row";
-  meaningBloock.style.flexWrap = "wrap";
+  meaningBloock.classList.add("meaningblock");
 
   meanings.forEach((meaning) => {
     const meaningText = document.createElement("span");
+    meaningText.classList.add("meaningtext");
     meaningText.textContent = meaning + ",";
-    meaningText.style.display = "block";
-    meaningText.style.padding = "2px 5px";
-    meaningText.style.marginBottom = "3px";
+
     meaningBloock.appendChild(meaningText);
   });
   block.appendChild(meaningBloock);
@@ -46,27 +40,13 @@ function manageFav(item: HTMLElement, _word: string): void {
 }
 function createTooltip(data: Word): HTMLElement {
   const tooltip = document.createElement("div");
-
-  tooltip.style.display = "flex";
-  tooltip.style.flexDirection = "column";
-  tooltip.style.border = "1px solid #ccc";
-  tooltip.style.padding = "10px";
-  tooltip.style.zIndex = "1000";
-  tooltip.style.backgroundColor = "#F2F2F2";
-  tooltip.style.color = "#222831";
-  tooltip.style.color = "black";
-  tooltip.style.borderRadius = "5px";
-
-  tooltip.style.fontFamily =
-    "'Helvetica Neue', 'Segoe UI', Helvetica, sans-serif";
+  tooltip.classList.add("tooltip");
   const WordTItle = document.createElement("div");
-  WordTItle.style.display = "flex";
-  WordTItle.style.flexDirection = "row";
+  WordTItle.classList.add("wordtitle");
 
   const word = document.createElement("strong");
   word.textContent = data.source[0].toUpperCase() + data.source.slice(1);
-  word.style.textAlign = "center";
-  word.style.flexGrow = "2";
+  word.classList.add("word");
 
   WordTItle.appendChild(word);
   const response: Promise<boolean> = chrome.runtime.sendMessage({
@@ -75,11 +55,7 @@ function createTooltip(data: Word): HTMLElement {
   });
   response.then((isfav) => {
     const fav = document.createElement("button");
-    fav.style.backgroundColor = "transparent";
-    fav.style.border = "none";
-    fav.style.color = "black";
-    fav.textContent = "add";
-    fav.style.textAlign = "center";
+    fav.classList.add("fav");
     fav.textContent = isfav ? FAV : NOT_FAV;
     fav.addEventListener("click", (event) => {
       manageFav(event.target as HTMLElement, data.source);
@@ -148,37 +124,25 @@ document.addEventListener("mouseup", async (event) => {
     response.then((results) => {
       if (results.length > 0) {
         console.log("Received meaning:", results);
+        const container = document.createElement("div");
+        container.id = tooltipID;
         const tooltipdiv = document.createElement("div");
-        tooltipdiv.id = tooltipID;
-        tooltipdiv.style.display = "flex";
-
-        tooltipdiv.style.flexDirection = "column";
-        tooltipdiv.style.overflow = "auto";
-        tooltipdiv.style.maxHeight = "300px";
-        tooltipdiv.style.maxWidth = "400px";
-
-        tooltipdiv.style.position = "absolute";
-
+        tooltipdiv.id = "tooltipdiv";
+        const shadow = container.attachShadow({ mode: "open" });
+        shadow.appendChild(style);
         for (const result of results) {
           const tooltip = createTooltip(result);
           tooltipdiv.appendChild(tooltip);
         }
-
+        shadow.appendChild(tooltipdiv);
         document.documentElement.lang = "ml";
-        document.body.appendChild(tooltipdiv);
+        document.body.appendChild(container);
         if (selection.rangeCount > 0) {
           const rect = selection.getRangeAt(0).getBoundingClientRect();
           tooltipdiv.style.left = `${rect.left}px`;
           tooltipdiv.style.top = `${rect.bottom + window.scrollY}px`;
           console.log(tooltipdiv);
         }
-        setTimeout(() => {
-          const existingtooltip = document.getElementById(tooltipID);
-          if (existingtooltip) {
-            existingtooltip.remove();
-          }
-        }, 10000);
-        // Remove after 5 seconds
       }
     });
   }
