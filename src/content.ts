@@ -10,6 +10,7 @@ function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   block.classList.add("wordblock");
 
   const typeLabel = document.createElement("span");
+  typeLabel.textContent = type;
   typeLabel.classList.add("label");
 
   block.appendChild(typeLabel);

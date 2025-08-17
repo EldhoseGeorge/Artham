@@ -9,9 +9,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       await checkScrollEnd(target);
     });
   }
-  words.map((word) => {
-    createWordBlock(word);
-  });
+  if (words.length > 0) {
+    const sidebarHead = document.getElementById("sidebar_head");
+    if (sidebarHead) {
+      sidebarHead.style.display = "flex";
+    }
+    const deleteAllButton = document.getElementById("btndelete_all");
+    if (deleteAllButton) {
+      deleteAllButton.addEventListener("click", async () => {
+        await chrome.runtime.sendMessage({ action: "deleteAllFav" });
+        window.location.reload();
+      });
+    }
+    words.map((word) => {
+      createWordBlock(word);
+    });
+  }
 });
 
 async function getFavWords(lastword: string = ""): Promise<string[]> {
@@ -34,8 +47,17 @@ function createWordBlock(word: string) {
     const wordDiv: HTMLElement = document.createElement("div");
     wordDiv.classList.add("cont-word");
     const text: HTMLElement = document.createElement("strong");
+    const delet_span = document.createElement("button");
+    delet_span.classList.add("delete_word");
+    delet_span.textContent = "Delete";
+    delet_span.addEventListener("click", async (event) => {
+      event.stopPropagation(); // Prevent the click from propagating to the wordDiv
+      await remove_fav(word, wordDiv);
+    });
+
     text.textContent = word[0].toUpperCase() + word.slice(1);
     wordDiv.appendChild(text);
+    wordDiv.appendChild(delet_span);
     wordDiv.addEventListener("click", async () => {
       await getMeaning(word);
     });
@@ -45,9 +67,13 @@ function createWordBlock(word: string) {
 
 async function checkScrollEnd(target: HTMLElement) {
   if (target.scrollHeight - target.scrollTop <= target.clientHeight + 10) {
-    const lastword: Element | null = target.lastElementChild;
+    const lastword: Element | null = target.querySelector(
+      ".cont-word:last-child strong"
+    );
     if (lastword && lastword.textContent) {
-      const words: string[] = await getFavWords(lastword.textContent);
+      const words: string[] = await getFavWords(
+        lastword.textContent.trim().toLowerCase()
+      );
       if (words.length > 0) {
         words.map((word) => {
           createWordBlock(word);
@@ -70,6 +96,23 @@ async function getMeaning(word: string) {
     }
   } catch (e) {
     console.error("Error fetching meaning:", e);
+  }
+}
+
+async function remove_fav(word: string, wordDiv: HTMLElement) {
+  await chrome.runtime.sendMessage({ action: "fav", word: word });
+  const currentMeaningCard: HTMLElement | null =
+    document.getElementById("meaning");
+  if (currentMeaningCard) {
+    currentMeaningCard.innerHTML = "";
+    currentMeaningCard.innerHTML = `
+    <div class='def'><strong class='types'>Select any word</strong></div>
+    `;
+  }
+  wordDiv.remove();
+  const parentContainer = document.getElementById("words");
+  if (parentContainer && parentContainer.children.length === 0) {
+    window.location.reload();
   }
 }
 

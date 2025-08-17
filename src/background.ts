@@ -8,6 +8,7 @@ const DB_VERSION: number = 1;
 const TOP_N = 5;
 const FUZZY_THRESHOLD = 0.4;
 const MIN_LENGTH = 6;
+const RANGE_LIMIT = 50;
 let DB_INSTANCE: IDBDatabase | null = null;
 
 async function getDictionaryData(): Promise<Dictionary> {
@@ -128,8 +129,10 @@ async function queryDictionaryByWordRange(
       request.onsuccess = (event) => {
         const cursor = (event.target as IDBRequest)
           .result as IDBCursorWithValue | null;
-        if (cursor) {
+
+        if (cursor && items.length < RANGE_LIMIT) {
           items.push(cursor.value as Word);
+
           cursor.continue(); // move to next record
         } else {
           console.log(cursor);
@@ -203,7 +206,28 @@ async function queryDictionaryByword(
       return undefined;
     });
 }
+async function getFavWords(lastWord: string): Promise<string[]> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(FAV_OBJECT_STORE_NAME, "readonly");
+    const store = tx.objectStore(FAV_OBJECT_STORE_NAME);
+    const bound = IDBKeyRange.lowerBound(lastWord, true);
+    return new Promise<string[]>((resolve, reject) => {
+      const request = store.getAllKeys(bound, RANGE_LIMIT);
 
+      request.onsuccess = () => {
+        resolve(request.result as string[]);
+      };
+
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  } catch (e) {
+    console.error("Error fetching favorite words:", e);
+    return [];
+  }
+}
 chrome.runtime.onInstalled.addListener(() => {
   (async () => {
     await getDB();
@@ -211,6 +235,18 @@ chrome.runtime.onInstalled.addListener(() => {
   return true;
 });
 
+chrome.runtime.onMessage.addListener(
+  (request: { action: string }, sender, sendResponse) => {
+    if (request.action == "deleteAllFav") {
+      (async () => {
+        await withStore(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
+          store.clear()
+        );
+        sendResponse(true);
+      })();
+    }
+  }
+);
 chrome.runtime.onMessage.addListener(
   (request: { action: string; word: string }, sender, sendResponse) => {
     if (request.action === "getMeaning") {
@@ -259,6 +295,13 @@ chrome.runtime.onMessage.addListener(
 
           sendResponse(res);
         }
+      })();
+      return true;
+    } else if (request.action == "getFavWords") {
+      (async () => {
+        const lastword: string = request.word.toLowerCase().trim();
+        const favWords: string[] = await getFavWords(lastword);
+        sendResponse(favWords);
       })();
       return true;
     } else {

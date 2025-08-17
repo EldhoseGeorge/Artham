@@ -10,6 +10,7 @@ const config: webpack.Configuration = {
     types: "./src/types.ts",
     stemmer: "./src/stemmer.ts",
     style: "./src/style.ts",
+    fav: "./src/fav.ts",
   },
   resolve: {
     extensions: [".ts"],
