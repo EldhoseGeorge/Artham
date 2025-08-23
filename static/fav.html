@@ -3,24 +3,41 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css"
+      integrity="sha512-DxV+EoADOkOygM4IR9yXP8Sb2qwgidEmeqAEmDKIOfPRQZOWbXCzLC6vjbZyy0vPisbH2SyW27+ddLVCN+OMzQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="favstyle.css" />
+    <title>Favourite Words</title>
   </head>
   <body>
-    <div class="container">
-      <div class="sidebar">
-        <div id="sidebar_head">
-          <div id="search">
-            <input type="text" id="search_text" placeholder="Search word..." />
+    <header>
+      <h1>Favourite Words</h1>
+      <p>Words that you are added as favourites will be displayed here.</p>
+    </header>
+    <main class="fav-main">
+      <section class="fav-list">
+        <div id="sidebar-head" class="sidebar-head">
+          <div class="search">
+            <input type="text" id="search-text" placeholder="Search word..." />
           </div>
-          <div id="delete_all">
-            <button id="btndelete_all">Delete all</button>
+          <div class="delete-all">
+            <button id="btndelete-all">Delete All</button>
           </div>
         </div>
         <div class="cont-wordlist" id="words"></div>
-      </div>
-
-      <div class="cont-def">
-        <div class="meaning_card" id="meaning">
+      </section>
+      <section class="word-details">
+        <div class="meaning-card" id="meaning">
           <div class="source">
             <strong></strong>
           </div>
@@ -29,9 +46,8 @@
             <div clsas="meaningvalues"></div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   </body>
   <script src="./fav.js"></script>
-  <link rel="stylesheet" href="favstyle.css" />
 </html>

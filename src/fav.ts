@@ -10,11 +10,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
   if (words.length > 0) {
-    const sidebarHead = document.getElementById("sidebar_head");
+    const sidebarHead = document.getElementById("sidebar-head");
     if (sidebarHead) {
       sidebarHead.style.display = "flex";
     }
-    const deleteAllButton = document.getElementById("btndelete_all");
+    const deleteAllButton = document.getElementById("btndelete-all");
     if (deleteAllButton) {
       deleteAllButton.addEventListener("click", async () => {
         await chrome.runtime.sendMessage({ action: "deleteAllFav" });
@@ -46,10 +46,10 @@ function createWordBlock(word: string) {
   if (parentContainer) {
     const wordDiv: HTMLElement = document.createElement("div");
     wordDiv.classList.add("cont-word");
-    const text: HTMLElement = document.createElement("strong");
+    const text: HTMLElement = document.createElement("p");
     const delet_span = document.createElement("button");
-    delet_span.classList.add("delete_word");
-    delet_span.textContent = "Delete";
+    delet_span.classList.add("delete-word");
+    delet_span.innerHTML = '<i class="fa-solid fa-trash"></i>';
     delet_span.addEventListener("click", async (event) => {
       event.stopPropagation(); // Prevent the click from propagating to the wordDiv
       await remove_fav(word, wordDiv);

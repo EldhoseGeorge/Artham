@@ -3,65 +3,79 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="style.css" />
-    <title>Document</title>
+    <title>English-Malayalam Dictionary</title>
   </head>
   <body>
-    <div class="card">
+    <header>
       <h1>English-Malayalam Dictionary</h1>
       <p>An open-source English–Malayalam dictionary.</p>
-      <form id="dict-form">
-        <strong>
-          <span id="toggle-label">Enabled</span>
-          for
-          <span id="domain-name">example.com</span>
-        </strong>
-        <label class="switch">
-          <input type="checkbox" id="dict-toggle" />
-          <span class="slider round"></span>
-        </label>
-      </form>
-      <div class="cont-view-fav">
-        <a href="fav.html" target="_blank" rel="noopener">
-          <div class="button-fav">My words</div>
+    </header>
+    <main>
+      <section class="cont-dict-status" id="dict-status-section">
+        <div>
+          <p>
+            <span id="dict-status" class="dict-status">Enabled</span>
+            <span>for</span>
+            <span id="domain-name" class="domain-name">Example.com</span>
+          </p>
+        </div>
+        <div>
+          <label class="dict-status-toggle">
+            <input type="checkbox" id="dict-status-toggle" />
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </section>
+      <section class="cont-view-fav">
+        <a href="fav.html" target="_blank" rel="noopener" class="button-fav">
+          Favourite Words
         </a>
-      </div>
-      <div class="license">
-        <p>
-          <strong>Data Source:</strong>
-          <a href="https://olam.in/p/open/enml" target="_blank" rel="noopener"
-            >Olam English-Malayalam dictionary dataset</a
-          ><br />
-          <strong>License:</strong>
-          <a
-            href="https://opendatacommons.org/licenses/odbl/"
-            target="_blank"
-            rel="noopener"
-            >Open Database License (ODbL)</a
-          >
+      </section>
+    </main>
+    <footer class="popup-footer">
+      <p>
+        <span>Data Source:</span>
+        <a href="https://olam.in/p/open/enml" target="_blank" rel="noopener"
+          >Olam English-Malayalam dictionary dataset</a
+        >
+      </p>
+      <p>
+        <span>License:</span>
+        <a
+          href="https://opendatacommons.org/licenses/odbl/"
+          target="_blank"
+          rel="noopener"
+          >Open Database License (ODbL)</a
+        >
 
-          You are free to share, create, and adapt the data as long as you
-          attribute the source and share any derived database under the same
-          license. See the
-          <a
-            href="https://opendatacommons.org/licenses/odbl/summary/"
-            target="_blank"
-            rel="noopener"
-            >ODbL summary</a
-          >
-          for details.
-        </p>
-        <p>
-          For issues and feature suggestions, visit
-          <a
-            href="https://github.com/EldhoseGeorge/eng-mal-dict"
-            target="_blank"
-            rel="noopener"
-            >GitHub</a
-          >.
-        </p>
-      </div>
-    </div>
+        You are free to share, create, and adapt the data as long as you
+        attribute the source and share any derived database under the same
+        license. See the
+        <a
+          href="https://opendatacommons.org/licenses/odbl/summary/"
+          target="_blank"
+          rel="noopener"
+          >ODbL summary</a
+        >
+        for details.
+      </p>
+      <p>
+        <span>Issues And Suggestions:</span> visit
+        <a
+          href="https://github.com/EldhoseGeorge/eng-mal-dict"
+          target="_blank"
+          rel="noopener"
+          >GitHub</a
+        >.
+      </p>
+    </footer>
   </body>
   <script src="./popup.js"></script>
 </html>

@@ -1,9 +1,11 @@
 // Wait for DOM to load
 document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById("dict-form");
+  const form = document.getElementById("dict-status-section");
   const domainSpan = document.getElementById("domain-name");
-  const toggle = document.getElementById("dict-toggle") as HTMLInputElement;
-  const label = document.getElementById("toggle-label");
+  const toggle = document.getElementById(
+    "dict-status-toggle"
+  ) as HTMLInputElement;
+  const label = document.getElementById("dict-status");
   let currentDomain = "";
 
   // Fetch and display the domain name of the current tab
@@ -24,7 +26,15 @@ document.addEventListener("DOMContentLoaded", () => {
             const disabledDomains = data.disabledDomains || {};
             const isDisabled = !disabledDomains[currentDomain];
             toggle.checked = isDisabled; // checked means enabled
-            if (label) label.textContent = isDisabled ? "ENABLED" : "DISABLED";
+            if (label) {
+              if (isDisabled) {
+                label.textContent = "ENABLED";
+                label.style.color = "#5ed1ff";
+              } else {
+                label.textContent = "DISABLED";
+                label.style.color = "#f65656ff";
+              }
+            }
           });
         } else {
           form.style.display = "none";
@@ -43,7 +53,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const isEnabled = toggle.checked;
 
     // Update label
-    if (label) label.textContent = isEnabled ? "ENABLED" : "DISABLED";
+    if (label) {
+      if (isEnabled) {
+        label.textContent = "ENABLED";
+        label.style.color = "#5ed1ff";
+      } else {
+        label.textContent = "DISABLED";
+        label.style.color = "#f65656ff";
+      }
+    }
 
     // Update storage
     chrome.storage.local.get(["disabledDomains"], (data) => {
