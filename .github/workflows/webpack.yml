@@ -33,5 +33,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: അർത്ഥം-dist
+          name: dist
           path: dist.zip
