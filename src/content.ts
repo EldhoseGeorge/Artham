@@ -82,6 +82,60 @@ function createTooltip(data: Word): HTMLElement {
   return tooltip;
 }
 
+async function ShowMeaning(selection: Selection) {
+  if (
+    !(
+      selection &&
+      selection.toString().trim() != "" &&
+      selection.toString().trim().split(" ").length === 1
+    )
+  ) {
+    return;
+  }
+  const existingtooltip = document.getElementById(tooltipID);
+  if (existingtooltip) {
+    existingtooltip.remove();
+  }
+
+  const selectedText = selection.toString().trim();
+  console.log(
+    "Selected text:",
+    selectedText,
+
+    stem(selectedText)
+  );
+
+  try {
+    const results: Word[] = await chrome.runtime.sendMessage({
+      action: "getMeaning",
+      word: selectedText,
+    });
+    if (results.length > 0) {
+      console.log("Received meaning:", results);
+      const container = document.createElement("div");
+      container.id = tooltipID;
+      const tooltipdiv = document.createElement("div");
+      tooltipdiv.id = "tooltipdiv";
+      const shadow = container.attachShadow({ mode: "open" });
+      shadow.appendChild(style);
+      for (const result of results) {
+        const tooltip = createTooltip(result);
+        tooltipdiv.appendChild(tooltip);
+      }
+      shadow.appendChild(tooltipdiv);
+      document.documentElement.lang = "ml";
+      document.body.appendChild(container);
+      if (selection.rangeCount > 0) {
+        const rect = selection.getRangeAt(0).getBoundingClientRect();
+        tooltipdiv.style.left = `${rect.left}px`;
+        tooltipdiv.style.top = `${rect.bottom + window.scrollY}px`;
+      }
+    }
+  } catch (e) {
+    console.error("Error in fetching meaning:", e);
+  }
+}
+
 document.addEventListener("mouseup", async (event) => {
   //console.log("Mouse up event detected:", event);
   const target = event.target as HTMLElement;
@@ -107,47 +161,5 @@ document.addEventListener("mouseup", async (event) => {
   if (existingtooltip && existingtooltip?.contains(target)) {
     selection = null; // selection to null to prevent recursive tooltip calling
   }
-  if (
-    selection &&
-    selection.toString().trim() != "" &&
-    selection.toString().trim().split(" ").length === 1
-  ) {
-    const selectedText = selection.toString().trim();
-    console.log(
-      "Selected text:",
-      selectedText,
-
-      stem(selectedText)
-    );
-
-    const response: Promise<Word[]> = chrome.runtime.sendMessage({
-      action: "getMeaning",
-      word: selectedText,
-    });
-
-    response.then((results) => {
-      if (results.length > 0) {
-        console.log("Received meaning:", results);
-        const container = document.createElement("div");
-        container.id = tooltipID;
-        const tooltipdiv = document.createElement("div");
-        tooltipdiv.id = "tooltipdiv";
-        const shadow = container.attachShadow({ mode: "open" });
-        shadow.appendChild(style);
-        for (const result of results) {
-          const tooltip = createTooltip(result);
-          tooltipdiv.appendChild(tooltip);
-        }
-        shadow.appendChild(tooltipdiv);
-        document.documentElement.lang = "ml";
-        document.body.appendChild(container);
-        if (selection.rangeCount > 0) {
-          const rect = selection.getRangeAt(0).getBoundingClientRect();
-          tooltipdiv.style.left = `${rect.left}px`;
-          tooltipdiv.style.top = `${rect.bottom + window.scrollY}px`;
-          console.log(tooltipdiv);
-        }
-      }
-    });
-  }
+  await ShowMeaning(selection as Selection);
 });

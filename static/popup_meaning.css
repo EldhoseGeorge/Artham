@@ -40,36 +40,6 @@ body {
   min-height: 30px;
   width: 100%;
 }
-#delete_all {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#btndelete_all {
-  border: solid red;
-  background: transparent;
-  color: red;
-  cursor: pointer;
-  border-radius: 20px;
-}
-#btndelete_all:hover {
-  background: rgba(255, 0, 0, 0.1);
-  box-shadow: rgba(255, 0, 0, 0.2) 0px 8px 32px,
-    inset rgba(255, 255, 255, 0.5) 0px 1px 0px;
-}
-.delete_word {
-  display: none;
-  border: solid red;
-  background: transparent;
-  color: red;
-  cursor: pointer;
-  border-radius: 20px;
-}
-.delete_word:hover {
-  background: rgba(255, 0, 0, 0.1);
-  box-shadow: rgba(255, 0, 0, 0.2) 0px 8px 32px,
-    inset rgba(255, 255, 255, 0.5) 0px 1px 0px;
-}
 
 .cont-wordlist {
   display: flex;

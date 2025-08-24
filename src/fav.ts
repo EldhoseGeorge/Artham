@@ -100,7 +100,7 @@ async function getMeaning(word: string) {
 }
 
 async function remove_fav(word: string, wordDiv: HTMLElement) {
-  await chrome.runtime.sendMessage({ action: "fav", word: word });
+  await chrome.runtime.sendMessage({ action: "removeFav", word: word });
   const currentMeaningCard: HTMLElement | null =
     document.getElementById("meaning");
   if (currentMeaningCard) {

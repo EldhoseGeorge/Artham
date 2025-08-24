@@ -11,6 +11,7 @@ const config: webpack.Configuration = {
     stemmer: "./src/stemmer.ts",
     style: "./src/style.ts",
     fav: "./src/fav.ts",
+    popup_meaning: "./src/popup_meaning.ts",
   },
   resolve: {
     extensions: [".ts"],

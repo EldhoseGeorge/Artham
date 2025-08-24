@@ -228,13 +228,65 @@ async function getFavWords(lastWord: string): Promise<string[]> {
     return [];
   }
 }
+
+async function queryDictionary(_word: string): Promise<Word[]> {
+  const word = _word.toLowerCase().trim();
+  let result: undefined | Word[] = [];
+  let currentWord: string = word;
+  result =
+    (await queryDictionaryByword(currentWord)) ||
+    (await queryDictionaryByStem(currentWord)) ||
+    undefined;
+  if (result) {
+    console.log(result);
+    return result;
+  } else if (word.length >= MIN_LENGTH) {
+    while (currentWord.length > Math.trunc(word.length / 2)) {
+      // We try exact match first since most queries succeed directly.
+      // Stem search is used only if exact match fails.
+      // This avoids extra IndexedDB calls in the common case.
+
+      currentWord = currentWord.slice(0, currentWord.length - 1);
+      result = await queryDictionaryByWordRange(currentWord, word);
+      if (result) break;
+    }
+    return result || [];
+  }
+  return [];
+}
 chrome.runtime.onInstalled.addListener(() => {
   (async () => {
     await getDB();
+    chrome.contextMenus.create({
+      id: "malayalam_meaning",
+      title: "Malayalam Meaning",
+      contexts: ["selection"],
+    });
   })();
   return true;
 });
-
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === "malayalam_meaning" && info.selectionText) {
+    try {
+      const meanings: Word[] = await queryDictionary(info.selectionText);
+      if (meanings.length > 0) {
+        console.log("Context menu meanings:", meanings);
+        const url: string =
+          chrome.runtime.getURL("popup_meaning.html") +
+          "?data=" +
+          encodeURIComponent(JSON.stringify(meanings));
+        chrome.windows.create({
+          url: url,
+          type: "popup",
+          width: 400,
+          height: 600,
+        });
+      }
+    } catch (e) {
+      console.error("Error in context menu click handler:", e);
+    }
+  }
+});
 chrome.runtime.onMessage.addListener(
   (request: { action: string }, sender, sendResponse) => {
     if (request.action == "deleteAllFav") {
@@ -251,29 +303,8 @@ chrome.runtime.onMessage.addListener(
   (request: { action: string; word: string }, sender, sendResponse) => {
     if (request.action === "getMeaning") {
       (async () => {
-        console.log("Received request for word:", request.word);
-        const word = request.word.toLowerCase().trim();
-        let result: undefined | Word[] = [];
-        let currentWord: string = word;
-        result =
-          (await queryDictionaryByword(currentWord)) ||
-          (await queryDictionaryByStem(currentWord)) ||
-          undefined;
-        if (result) {
-          console.log(result);
-          sendResponse(result);
-        } else if (word.length >= MIN_LENGTH) {
-          while (currentWord.length > Math.trunc(word.length / 2)) {
-            // We try exact match first since most queries succeed directly.
-            // Stem search is used only if exact match fails.
-            // This avoids extra IndexedDB calls in the common case.
-
-            currentWord = currentWord.slice(0, currentWord.length - 1);
-            result = await queryDictionaryByWordRange(currentWord, word);
-            if (result) break;
-          }
-          sendResponse(result || []);
-        }
+        const res: Word[] = await queryDictionary(request.word);
+        sendResponse(res);
       })();
       return true; // Indicates that the response will be sent asynchronously
     } else if (request.action == "isfav") {
@@ -304,7 +335,14 @@ chrome.runtime.onMessage.addListener(
         sendResponse(favWords);
       })();
       return true;
-    } else {
+    } else if (request.action === "removeFav") {
+      (async () => {
+        const res = await removeFav(request.word);
+        sendResponse(res);
+      })();
+      return true;
+    }
+    {
       return false; // Unrecognized action
     }
   }

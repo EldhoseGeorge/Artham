@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Dictionry",
+  "name": "dictionary",
   "version": "1.0",
-  "description": "A sample Chrome extension manifest.",
+  "description": "manifest for dictionary extension",
   "action": {
     "default_popup": "popup.html"
   },
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "contextMenus"],
   "background": {
     "service_worker": "background.js"
   },
