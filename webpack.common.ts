@@ -1,17 +1,16 @@
 import CopyWebpackPlugin from "copy-webpack-plugin";
 import path from "path";
 import webpack from "webpack";
-
+const srcDir = path.resolve(__dirname, "src");
 const config: webpack.Configuration = {
   entry: {
-    background: "./src/background.ts",
-    content: "./src/content.ts",
-    popup: "./src/popup.ts",
-    types: "./src/types.ts",
-    stemmer: "./src/stemmer.ts",
-    style: "./src/style.ts",
-    fav: "./src/fav.ts",
-    popup_meaning: "./src/popup_meaning.ts",
+    background: path.join(srcDir, "background.ts"),
+    content: path.join(srcDir, "content.ts"),
+    popup: path.join(srcDir, "popup.ts"),
+    stemmer: path.join(srcDir, "stemmer.ts"),
+    style: path.join(srcDir, "style.ts"),
+    fav: path.join(srcDir, "fav.ts"),
+    popup_meaning: path.join(srcDir, "popup_meaning.ts"),
   },
   resolve: {
     extensions: [".ts"],
