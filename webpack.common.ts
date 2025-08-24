@@ -1,7 +1,7 @@
 import CopyWebpackPlugin from "copy-webpack-plugin";
 import path from "path";
 import webpack from "webpack";
-const srcDir = path.resolve(__dirname, "src");
+
 const config: webpack.Configuration = {
   entry: {
     background: "./background.ts",
@@ -32,7 +32,7 @@ const config: webpack.Configuration = {
   },
   plugins: [
     new CopyWebpackPlugin({
-      patterns: [{ from: "static" }],
+      patterns: [{ from: path.resolve(__dirname, "static") }],
     }),
   ],
 };
