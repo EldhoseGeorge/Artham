@@ -4,15 +4,15 @@ import webpack from "webpack";
 
 const config: webpack.Configuration = {
   entry: {
-    background: "./background.ts",
-    content: "./content.ts",
-    popup: "./popup.ts",
-    stemmer: "./stemmer.ts",
-    style: "./style.ts",
-    fav: "./fav.ts",
-    popup_meaning: "./popup_meaning.ts",
+    background: path.resolve(__dirname, "src/background.ts"),
+    content: path.resolve(__dirname, "src/content.ts"),
+    popup: path.resolve(__dirname, "src/popup.ts"),
+    stemmer: path.resolve(__dirname, "src/stemmer.ts"),
+    style: path.resolve(__dirname, "src/style.ts"),
+    fav: path.resolve(__dirname, "src/fav.ts"),
+    popup_meaning: path.resolve(__dirname, "src/popup_meaning.ts"),
   },
-  context: path.join(__dirname, "src"),
+
   resolve: {
     extensions: [".ts"],
   },
