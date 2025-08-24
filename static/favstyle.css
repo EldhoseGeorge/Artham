@@ -1,3 +1,14 @@
+:root {
+  --main-background-color: linear-gradient(135deg, #ffffff, #f0f8ff);
+  --primary-text-color: #1a202c;
+  --strong-text-color: #00000099;
+  --primary-color: #5ed1ff;
+  --secondary-color: #f0f8ff;
+  --contradict-color: #ff6e6e;
+  --box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --box-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -5,13 +16,17 @@
 }
 
 html {
-  background: linear-gradient(135deg, #ffffff, #f0f8ff);
+  background: var(--main-background);
 }
 
 body {
   font-family: "Poppins", sans-serif;
-  color: #1a202c;
+  color: var(--primary-text-color);
   height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow-y: hidden;
 }
 
 h1 {
@@ -30,12 +45,7 @@ a {
 
 header {
   margin: 20px 10px;
-  height: 8%;
-}
-
-main {
-  margin: 15px;
-  padding: 10px;
+  flex: 0, 0, auto;
 }
 
 section {
@@ -54,12 +64,15 @@ header p {
   padding: 5px;
 }
 
-.fav-main {
+main {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 70px;
-  height: 90%;
+  margin: 15px;
+  padding: 10px;
+  flex: 1;
+  height: 80%;
 }
 
 .fav-list {
@@ -68,25 +81,47 @@ header p {
   justify-content: space-between;
   flex: 0 0 40%;
   gap: 50px;
-  height: 90%;
+  height: 100%;
 }
 
 .word-details {
   overflow-y: auto;
   flex: 1;
-  /* height: 90%; */
 }
 
 .word-details .meaning-card {
   display: flex;
   flex-direction: column;
   gap: 15px;
+  width: 100%;
+}
+
+.word-details .no-word-selected {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 20%;
+  color: var(--strong-text-color);
 }
 
 .word-details .meaning-card .source {
   font-size: 18px;
   font-weight: 700;
-  text-align: left;
+  text-decoration: underline;
+  margin-bottom: 25px;
+}
+
+.word-details .meaning-card .def {
+  font-size: x-large;
+}
+
+.word-details .meaning-card .types {
+  color: var(--strong-text-color);
+  font-style: italic;
+}
+
+.word-details .meaning-card .meaningvalues {
+  text-indent: 20px;
 }
 
 .fav-list .sidebar-head {
@@ -105,8 +140,6 @@ header p {
   justify-content: space-evenly;
   align-items: center;
   overflow-y: auto;
-  border-radius: 2%;
-  box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.5);
   height: 80%;
 }
 
@@ -119,26 +152,26 @@ header p {
 }
 
 .fav-list .cont-wordlist::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--strong-text-color);
   border-radius: 4px;
-  transition: background 0.3s ease;
+  transition: 0.3s ease;
 }
 
 .fav-list .cont-wordlist::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--primary-text-color);
 }
 
 .fav-list .cont-wordlist .cont-word {
   padding: 10px;
   width: 90%;
-  margin: 12px auto;
+  margin: 17px auto;
   display: flex;
   justify-content: space-between;
-  box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--box-shadow);
 }
 
 .fav-list .cont-wordlist .cont-word:hover {
-  box-shadow: 8px 8px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--box-shadow-hover);
 }
 
 .fav-list .cont-wordlist .cont-word .delete-word {
@@ -149,7 +182,7 @@ header p {
 }
 
 .fa-trash {
-  color: red;
+  color: var(--contradict-color);
 }
 
 .fav-list .cont-wordlist .cont-word p {
@@ -164,16 +197,16 @@ header p {
 
 .fav-list .sidebar-head .search input[type="text"] {
   border-radius: 20px;
-  box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--box-shadow);
   border: transparent;
   min-height: 30px;
   width: 100%;
-  padding: 5px;
+  padding: 8px;
 }
 
 .search input[type="text"]:focus {
   outline: none;
-  box-shadow: 8px 8px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--box-shadow-hover);
 }
 
 .fav-list .sidebar-head .delete-all {
@@ -181,74 +214,16 @@ header p {
 }
 
 .fav-list .sidebar-head .delete-all button {
-  color: #fff;
+  color: var(--secondary-color);
   cursor: pointer;
   border-radius: 20px;
-  background-color: red;
+  background-color: var(--contradict-color);
   padding: 5px;
   width: 100%;
   border: none;
-  box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--box-shadow);
 }
 
 .fav-list .sidebar-head .delete-all button:hover {
-  box-shadow: 8px 8px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--box-shadow-hover);
 }
-
-/* 
-.fav-list .cont-wordlist::-webkit-scrollbar {
-  width: 6px;
-}
-
-.fav-list .cont-wordlist::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.fav-list .cont-wordlist::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 4px;
-  transition: background 0.3s ease;
-}
-
-.fav-list .cont-wordlist::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.4);
-}
-
-.meaning-card > * {
-  animation: fadein 0.3s ease-in-out;
-}
-.def {
-  display: grid;
-  max-width: 600px;
-  font-size: x-large;
-  gap: 20px;
-  padding: 10px;
-}
-
-.types {
-  padding: 10px;
-
-  color: rgba(0, 0, 0, 0.6);
-  font-style: italic;
-}
-
-.meaningvalues {
-  padding: 10px;
-  padding-left: 50px;
-}
-
-.source {
-  font-size: xx-large;
-  margin-bottom: 25px;
-  font-weight: bolder;
-  text-align: center;
-}
-
-@keyframes fadein {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-} */

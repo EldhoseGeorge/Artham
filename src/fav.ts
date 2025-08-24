@@ -106,7 +106,7 @@ async function remove_fav(word: string, wordDiv: HTMLElement) {
   if (currentMeaningCard) {
     currentMeaningCard.innerHTML = "";
     currentMeaningCard.innerHTML = `
-    <div class='def'><strong class='types'>Select any word</strong></div>
+    <div class='no-word-selected'>Select any word</div>
     `;
   }
   wordDiv.remove();
