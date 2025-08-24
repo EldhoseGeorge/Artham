@@ -29,21 +29,12 @@ body {
   justify-content: space-evenly;
   margin: 10px;
 }
-#search {
-  flex: 0 0 70%;
-}
-#search_text {
-  border-radius: 20px;
-  box-shadow: rgba(17, 17, 26, 0.1) 0px 1px 0px,
-    rgba(17, 17, 26, 0.1) 0px 8px 24px, rgba(17, 17, 26, 0.1) 0px 16px 48px;
-  border: transparent;
-  min-height: 30px;
-  width: 100%;
-}
+
 #delete_all {
   display: flex;
   align-items: center;
-  justify-content: center;
+  width: 100%;
+  justify-content: flex-end;
 }
 #btndelete_all {
   border: solid red;

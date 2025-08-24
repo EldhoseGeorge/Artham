@@ -9,6 +9,7 @@ const TOP_N = 5;
 const FUZZY_THRESHOLD = 0.4;
 const MIN_LENGTH = 6;
 const RANGE_LIMIT = 50;
+let POPUP_WINDOW_ID: number | undefined = undefined;
 let DB_INSTANCE: IDBDatabase | null = null;
 
 async function getDictionaryData(): Promise<Dictionary> {
@@ -254,16 +255,35 @@ async function queryDictionary(_word: string): Promise<Word[]> {
   }
   return [];
 }
+function createPopUpWindow(url: string) {
+  chrome.windows.create(
+    {
+      url: url,
+      type: "popup",
+      width: 450,
+      height: 600,
+      left: 500,
+    },
+    (window) => {
+      POPUP_WINDOW_ID = window?.id;
+    }
+  );
+}
 chrome.runtime.onInstalled.addListener(() => {
   (async () => {
     await getDB();
     chrome.contextMenus.create({
       id: "malayalam_meaning",
-      title: "Malayalam Meaning",
+      title: "മലയാള അർത്ഥം",
       contexts: ["selection"],
     });
   })();
   return true;
+});
+chrome.windows.onRemoved.addListener((windowId) => {
+  if (POPUP_WINDOW_ID === windowId) {
+    POPUP_WINDOW_ID = undefined;
+  }
 });
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "malayalam_meaning" && info.selectionText) {
@@ -275,12 +295,21 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           chrome.runtime.getURL("popup_meaning.html") +
           "?data=" +
           encodeURIComponent(JSON.stringify(meanings));
-        chrome.windows.create({
-          url: url,
-          type: "popup",
-          width: 400,
-          height: 600,
-        });
+        if (POPUP_WINDOW_ID) {
+          chrome.windows.update(
+            POPUP_WINDOW_ID,
+            { focused: true },
+            (window) => {
+              if (chrome.runtime.lastError || !window) {
+                createPopUpWindow(url);
+              } else {
+                chrome.tabs.update(window.tabs?.[0].id, { url: url });
+              }
+            }
+          );
+        } else {
+          createPopUpWindow(url);
+        }
       }
     } catch (e) {
       console.error("Error in context menu click handler:", e);

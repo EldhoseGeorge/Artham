@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "dictionary",
+  "name": "അർത്ഥം",
   "version": "1.0",
-  "description": "manifest for dictionary extension",
+  "description": "English-Malayalam dictionary",
   "action": {
     "default_popup": "popup.html"
   },
