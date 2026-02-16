@@ -1,8 +1,15 @@
 import Fuse from "fuse.js";
 import { stem } from "./stemmer";
-import { Dictionary, Word } from "./types";
+import {
+  DictionaryEntry,
+  FlattenedEntry,
+  Word,
+  MeaningResult,
+  MeaningBlock,
+} from "./types";
 const DB_NAME: string = "db_dictionary";
 const OBJECT_STORE_NAME: string = "engmal";
+const FLATTENED_OBJECT_STORE_NAME: string = "engmal_flat";
 const FAV_OBJECT_STORE_NAME = "fav";
 const DB_VERSION: number = 1;
 const TOP_N = 5;
@@ -12,16 +19,73 @@ const RANGE_LIMIT = 50;
 let POPUP_WINDOW_ID: number | undefined = undefined;
 let DB_INSTANCE: IDBDatabase | null = null;
 
-async function getDictionaryData(): Promise<Dictionary> {
-  return fetch(chrome.runtime.getURL("/data/enml.json"))
-    .then((response) => response.json())
-    .then((data: Dictionary) => data);
+async function flushBatch<T>(
+  batch: T[],
+  db: IDBDatabase,
+  objectStore: string,
+): Promise<void> {
+  if (batch.length === 0) return;
+  const tx = db.transaction(objectStore, "readwrite");
+  const store = tx.objectStore(objectStore);
+
+  batch.forEach((w) => {
+    store.put(w);
+  });
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error("Transaction aborted"));
+  });
+}
+
+async function streamJSONLinesGzip<T>(
+  url: string,
+  db: IDBDatabase,
+  batchSize: number = 500,
+  processBatch: (batch: T[]) => Promise<void>,
+): Promise<void> {
+  console.log("Starting to stream and process JSON lines");
+
+  const response = await fetch(url);
+  const stream = response.body
+    ?.pipeThrough(new DecompressionStream("gzip"))
+    .pipeThrough(new TextDecoderStream());
+  if (!stream) throw new Error("Failed to get response stream");
+
+  const reader = stream.getReader();
+  let buffer = "";
+  let batch: T[] = [];
+  let { value, done } = await reader.read();
+  while (!done) {
+    buffer += value ?? "";
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const item: T = JSON.parse(line);
+      batch.push(item);
+      if (batch.length >= batchSize) {
+        await processBatch(batch);
+        batch = []; // Clear batch after processing
+      }
+    }
+
+    ({ value, done } = await reader.read());
+  }
+
+  if (buffer.trim()) {
+    const item: T = JSON.parse(buffer);
+    batch.push(item);
+  }
+
+  await processBatch(batch);
 }
 
 async function withStore<T>(
   objStoreName: string,
   mode: IDBTransactionMode,
-  callback: (store: IDBObjectStore) => IDBRequest<T>
+  callback: (store: IDBObjectStore) => IDBRequest<T>,
 ): Promise<void | T> {
   return getDB().then((db) => {
     return new Promise<T>((resolve, reject) => {
@@ -49,13 +113,14 @@ function getDB(): Promise<IDBDatabase> {
       };
       request.onsuccess = (event) => {
         DB_INSTANCE = request.result;
+
         DB_INSTANCE.onclose = () => (DB_INSTANCE = null);
         resolve(DB_INSTANCE);
       };
       request.onerror = (event) => {
         console.error(
           "Database error:",
-          (event?.target as IDBOpenDBRequest)?.error?.message
+          (event?.target as IDBOpenDBRequest)?.error?.message,
         );
         DB_INSTANCE = null;
         reject((event?.target as IDBOpenDBRequest)?.error?.message);
@@ -64,44 +129,83 @@ function getDB(): Promise<IDBDatabase> {
   });
 }
 
-function DBinit(event: IDBVersionChangeEvent) {
+async function DBinit(event: IDBVersionChangeEvent) {
   console.log("Initializing database:", DB_NAME);
   const db = (event.target as IDBOpenDBRequest).result;
   if (db.objectStoreNames.contains(OBJECT_STORE_NAME)) {
     db.deleteObjectStore(OBJECT_STORE_NAME);
     console.log("Deleted existing object store:", OBJECT_STORE_NAME);
   }
+  if (db.objectStoreNames.contains(FAV_OBJECT_STORE_NAME)) {
+    db.deleteObjectStore(FAV_OBJECT_STORE_NAME);
+    console.log("Deleted existing object store:", FAV_OBJECT_STORE_NAME);
+  }
+  if (db.objectStoreNames.contains(FLATTENED_OBJECT_STORE_NAME)) {
+    db.deleteObjectStore(FLATTENED_OBJECT_STORE_NAME);
+    console.log("Deleted existing object store:", FLATTENED_OBJECT_STORE_NAME);
+  }
+
   console.log("Creating object store:", OBJECT_STORE_NAME);
   const objectStore: IDBObjectStore = db.createObjectStore(OBJECT_STORE_NAME, {
-    keyPath: "source",
+    keyPath: "head",
   });
-  objectStore.createIndex("stem", "stem", { unique: false });
-  objectStore.transaction.oncomplete = (event) => {
-    getDictionaryData().then((data: Dictionary) => {
-      const dataObjectStore: IDBObjectStore = db
-        .transaction(OBJECT_STORE_NAME, "readwrite")
-        .objectStore(OBJECT_STORE_NAME);
-      data?.data.forEach((item: Word) => {
-        item.stem = stem(item.source);
-        dataObjectStore.add(item);
-      });
+  console.log("created object store:", FLATTENED_OBJECT_STORE_NAME);
+  const flattenedObjectStore: IDBObjectStore = db.createObjectStore(
+    FLATTENED_OBJECT_STORE_NAME,
+    {
+      keyPath: "word",
+    },
+  );
+
+  console.log("Creating index on 'stem' field");
+  flattenedObjectStore.createIndex("stem", "stem", { unique: false });
+  const transactionDone = (transaction: IDBTransaction) => {
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () =>
+        resolve("Transaction completed successfully");
+      transaction.onerror = () => reject(transaction.error);
     });
   };
-  const favObjectStore: IDBObjectStore = db.createObjectStore(
-    FAV_OBJECT_STORE_NAME,
-    { keyPath: "word" }
-  );
+  (async () => {
+    await Promise.all([
+      transactionDone(objectStore.transaction),
+      transactionDone(flattenedObjectStore.transaction),
+    ]);
+  })();
+  console.log("Starting to stream JSON lines into the database");
+  try {
+    await streamJSONLinesGzip<DictionaryEntry>(
+      chrome.runtime.getURL("data/ekkurup.jsonl.gz"),
+      db,
+      500,
+      (currentBatch) => flushBatch(currentBatch, db, OBJECT_STORE_NAME),
+    );
+    await streamJSONLinesGzip<FlattenedEntry>(
+      chrome.runtime.getURL("data/ekkurup_flaten.jsonl.gz"),
+      db,
+      500,
+      (currentBatch) => {
+        for (const entry of currentBatch) {
+          entry.stem = stem(entry.word);
+        }
+        return flushBatch(currentBatch, db, FLATTENED_OBJECT_STORE_NAME);
+      },
+    );
+  } catch (e) {
+    console.error("Error during database initialization:", e);
+  }
+  console.log("Database initialization completed");
 }
 
 async function isFavWord(word: string): Promise<boolean> {
   return withStore<Word>(FAV_OBJECT_STORE_NAME, "readonly", (store) =>
-    store.get(word)
+    store.get(word),
   ).then((result) => !!result);
 }
 
 async function removeFav(word: string): Promise<boolean> {
   return withStore<undefined>(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
-    store.delete(word)
+    store.delete(word),
   ).then(() => false);
 }
 
@@ -110,47 +214,47 @@ async function addFav(word: string): Promise<boolean> {
     store.put({
       word: word,
       time: Date.now(),
-    })
+    }),
   ).then(() => true);
 }
 
 async function queryDictionaryByWordRange(
   word: string,
-  orginalWord: string
-): Promise<Word[] | undefined> {
+  orginalWord: string,
+): Promise<FlattenedEntry[] | []> {
   return getDB().then((db) => {
-    return new Promise<Word[] | undefined>((resolve, reject) => {
-      const tx = db.transaction(OBJECT_STORE_NAME, "readonly");
-      const store = tx.objectStore(OBJECT_STORE_NAME);
+    return new Promise<FlattenedEntry[] | []>((resolve, reject) => {
+      const tx = db.transaction(FLATTENED_OBJECT_STORE_NAME, "readonly");
+      const store = tx.objectStore(FLATTENED_OBJECT_STORE_NAME);
       const bound = IDBKeyRange.bound(word, word + "\uffff", true);
       const request = store.openCursor(bound);
 
-      const items: Word[] = [];
+      const items: FlattenedEntry[] = [];
 
       request.onsuccess = (event) => {
         const cursor = (event.target as IDBRequest)
           .result as IDBCursorWithValue | null;
 
         if (cursor && items.length < RANGE_LIMIT) {
-          items.push(cursor.value as Word);
+          items.push(cursor.value as FlattenedEntry);
 
           cursor.continue(); // move to next record
         } else {
           console.log(cursor);
           if (items && items.length > 0) {
             const search = new Fuse(items, {
-              keys: ["source"],
+              keys: ["word"],
               threshold: FUZZY_THRESHOLD,
               includeScore: true,
             });
             const fuzzy_result = search.search(orginalWord);
             console.log(fuzzy_result);
-            const topResult: Word[] = fuzzy_result
+            const topResult: FlattenedEntry[] = fuzzy_result
               .slice(0, TOP_N)
               .map((item) => item.item);
             resolve(topResult);
           } else {
-            resolve(undefined);
+            resolve([]);
           }
         }
       };
@@ -162,25 +266,14 @@ async function queryDictionaryByWordRange(
   });
 }
 
-async function queryDictionaryByStem(
-  word: string
-): Promise<Word[] | undefined> {
-  const stemmedWord = stem(word);
-  return withStore<Word[]>(OBJECT_STORE_NAME, "readonly", (store) =>
-    store.index("stem").getAll(stemmedWord)
+async function getHead(head: string): Promise<DictionaryEntry | undefined> {
+  return withStore<DictionaryEntry>(OBJECT_STORE_NAME, "readonly", (store) =>
+    store.get(head),
   )
     .then((result) => {
-      if (result && result.length > 0) {
-        const search = new Fuse(result, {
-          keys: ["source"],
-          threshold: FUZZY_THRESHOLD,
-          includeScore: true,
-        });
-        const fuzzy_result = search.search(word);
-        const topResult: Word[] = fuzzy_result
-          .slice(0, TOP_N)
-          .map((item) => item.item);
-        return topResult;
+      console.log("Fetched head data for:", head, result); // Debug log
+      if (result) {
+        return result;
       }
       return undefined;
     })
@@ -190,21 +283,89 @@ async function queryDictionaryByStem(
     });
 }
 
+async function selectHeads(
+  data: FlattenedEntry[],
+): Promise<MeaningResult[] | []> {
+  const result: MeaningResult[] = [];
+
+  for (const entry of data) {
+    const heads = entry.heads;
+    heads.sort((a, b) => {
+      return a[1] - b[1] || a[2] - b[2];
+    });
+    const searchHead = heads[0][0];
+    const WordIndex = Math.max(Number(heads[0][2]), 0);
+    const WordPOS = heads[0][3];
+    console.log("Selected head:", searchHead);
+    const headData = await getHead(searchHead);
+    if (headData) {
+      const _temp: MeaningResult = {
+        word: entry.word,
+        meanings: headData.senses
+          .filter((sense) => {
+            const isMatch = sense.pos == WordPOS || WordPOS == "h";
+            console.log(`Checking ${sense.pos} against ${WordPOS}: ${isMatch}`);
+            return isMatch;
+          })
+          .map((sense) => ({
+            pos: sense.pos,
+            ml: sense.ml.flat().slice(WordIndex, WordIndex + 10),
+          })),
+      };
+      result.push(_temp);
+    }
+  }
+  console.log(result);
+  return result;
+}
+
+async function queryDictionaryByStem(
+  word: string,
+): Promise<FlattenedEntry[] | []> {
+  const stemmedWord = stem(word);
+  return withStore<FlattenedEntry[]>(
+    FLATTENED_OBJECT_STORE_NAME,
+    "readonly",
+    (store) => store.index("stem").getAll(stemmedWord),
+  )
+    .then((result) => {
+      if (result && result.length > 0) {
+        const search = new Fuse(result, {
+          keys: ["word"],
+          threshold: FUZZY_THRESHOLD,
+          includeScore: true,
+        });
+        const fuzzy_result = search.search(word);
+        const topResult: FlattenedEntry[] = fuzzy_result
+          .slice(0, TOP_N)
+          .map((item) => item.item);
+        return topResult;
+      }
+      return [];
+    })
+    .catch((err) => {
+      console.error("Error fetching word:", err);
+      return [];
+    });
+}
+
 async function queryDictionaryByword(
-  word: string
-): Promise<Word[] | undefined> {
-  return withStore<Word>(OBJECT_STORE_NAME, "readonly", (store) =>
-    store.get(word)
+  word: string,
+): Promise<FlattenedEntry[] | []> {
+  return withStore<FlattenedEntry>(
+    FLATTENED_OBJECT_STORE_NAME,
+    "readonly",
+    (store) => store.get(word),
   )
     .then((result) => {
       if (result) {
         return [result];
       }
-      return undefined;
+      return [];
     })
     .catch((err) => {
       console.error("Error fetching word:", err);
-      return undefined;
+      return [];
     });
 }
 async function getFavWords(lastWord: string): Promise<string[]> {
@@ -230,17 +391,17 @@ async function getFavWords(lastWord: string): Promise<string[]> {
   }
 }
 
-async function queryDictionary(_word: string): Promise<Word[]> {
+async function queryDictionary(_word: string): Promise<MeaningResult[] | []> {
   const word = _word.toLowerCase().trim();
-  let result: undefined | Word[] = [];
+  let result: [] | FlattenedEntry[] = [];
   let currentWord: string = word;
-  result =
-    (await queryDictionaryByword(currentWord)) ||
-    (await queryDictionaryByStem(currentWord)) ||
-    undefined;
-  if (result) {
-    console.log(result);
-    return result;
+  result = await queryDictionaryByword(currentWord);
+  if (result.length == 0) {
+    result = await queryDictionaryByStem(currentWord);
+  }
+
+  if (result.length > 0) {
+    return await selectHeads(result);
   } else if (word.length >= MIN_LENGTH) {
     while (currentWord.length > Math.trunc(word.length / 2)) {
       // We try exact match first since most queries succeed directly.
@@ -249,9 +410,10 @@ async function queryDictionary(_word: string): Promise<Word[]> {
 
       currentWord = currentWord.slice(0, currentWord.length - 1);
       result = await queryDictionaryByWordRange(currentWord, word);
-      if (result) break;
+      if (result.length > 0) break;
     }
-    return result || [];
+
+    return await selectHeads(result);
   }
   return [];
 }
@@ -266,7 +428,7 @@ function createPopUpWindow(url: string) {
     },
     (window) => {
       POPUP_WINDOW_ID = window?.id;
-    }
+    },
   );
 }
 chrome.runtime.onInstalled.addListener(() => {
@@ -288,7 +450,9 @@ chrome.windows.onRemoved.addListener((windowId) => {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "malayalam_meaning" && info.selectionText) {
     try {
-      const meanings: Word[] = await queryDictionary(info.selectionText);
+      const meanings: MeaningResult[] = await queryDictionary(
+        info.selectionText,
+      );
       if (meanings.length > 0) {
         console.log("Context menu meanings:", meanings);
         const url: string =
@@ -305,7 +469,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
               } else {
                 chrome.tabs.update(window.tabs?.[0].id, { url: url });
               }
-            }
+            },
           );
         } else {
           createPopUpWindow(url);
@@ -321,18 +485,18 @@ chrome.runtime.onMessage.addListener(
     if (request.action == "deleteAllFav") {
       (async () => {
         await withStore(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
-          store.clear()
+          store.clear(),
         );
         sendResponse(true);
       })();
     }
-  }
+  },
 );
 chrome.runtime.onMessage.addListener(
   (request: { action: string; word: string }, sender, sendResponse) => {
     if (request.action === "getMeaning") {
       (async () => {
-        const res: Word[] = await queryDictionary(request.word);
+        const res: MeaningResult[] = await queryDictionary(request.word);
         sendResponse(res);
       })();
       return true; // Indicates that the response will be sent asynchronously
@@ -374,5 +538,5 @@ chrome.runtime.onMessage.addListener(
     {
       return false; // Unrecognized action
     }
-  }
+  },
 );

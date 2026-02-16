@@ -1,6 +1,6 @@
 import { stem } from "./stemmer";
 import { style } from "./style";
-import { Word, type_map } from "./types";
+import { MeaningResult, type_map } from "./types";
 const tooltipID = "dictionary-tooltip";
 const FAV: string = "❤️";
 const NOT_FAV: string = "🩶";
@@ -39,39 +39,39 @@ function manageFav(item: HTMLElement, _word: string): void {
   });
 }
 
-function createTooltip(data: Word): HTMLElement {
+function createTooltip(data: MeaningResult): HTMLElement {
   const tooltip = document.createElement("div");
   tooltip.classList.add("tooltip");
   const WordTItle = document.createElement("div");
   WordTItle.classList.add("wordtitle");
 
   const word = document.createElement("strong");
-  word.textContent = data.source[0].toUpperCase() + data.source.slice(1);
+  word.textContent = data.word[0].toUpperCase() + data.word.slice(1);
   word.classList.add("word");
 
   WordTItle.appendChild(word);
   const response: Promise<boolean> = chrome.runtime.sendMessage({
     action: "isfav",
-    word: data.source,
+    word: data.word,
   });
   response.then((isfav) => {
     const fav = document.createElement("button");
     fav.classList.add("fav");
     fav.textContent = isfav ? FAV : NOT_FAV;
     fav.addEventListener("click", (event) => {
-      manageFav(event.target as HTMLElement, data.source);
+      manageFav(event.target as HTMLElement, data.word);
     });
     WordTItle.appendChild(fav);
   });
   tooltip.appendChild(WordTItle);
   let sortedMeaning: { [key: string]: string[] } = {};
 
-  data.values.forEach((word) => {
-    let _type: string = type_map[word.type] || word.type;
+  data.meanings.forEach((word) => {
+    let _type: string = type_map[word.pos] || word.pos;
     if (!sortedMeaning[_type]) {
       sortedMeaning[_type] = [];
     }
-    sortedMeaning[_type].push(word.meaning);
+    sortedMeaning[_type].push(word.ml.join(", "));
   });
   for (const type in sortedMeaning) {
     const meanings = sortedMeaning[type];
@@ -102,11 +102,11 @@ async function ShowMeaning(selection: Selection) {
     "Selected text:",
     selectedText,
 
-    stem(selectedText)
+    stem(selectedText),
   );
 
   try {
-    const results: Word[] = await chrome.runtime.sendMessage({
+    const results: MeaningResult[] = await chrome.runtime.sendMessage({
       action: "getMeaning",
       word: selectedText,
     });

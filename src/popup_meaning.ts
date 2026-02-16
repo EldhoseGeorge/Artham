@@ -1,11 +1,13 @@
-import { Word, type_map } from "./types";
+import { MeaningResult, type_map } from "./types";
 const FAV: string = "❤️";
 const NOT_FAV: string = "🩶";
 window.document.addEventListener("DOMContentLoaded", () => {
   const url = new URL(window.location.href);
   const data = url.searchParams.get("data");
   if (data) {
-    const meanings: Word[] = JSON.parse(decodeURIComponent(data)) as Word[];
+    const meanings: MeaningResult[] = JSON.parse(
+      decodeURIComponent(data),
+    ) as MeaningResult[];
     let container: Element | null =
       document.getElementById("meaning-container");
     meanings.forEach(async (word) => {
@@ -25,31 +27,31 @@ function manageFav(item: HTMLElement, _word: string): void {
     item.textContent = status ? FAV : NOT_FAV;
   });
 }
-async function createMeaningCard(data: Word): Promise<HTMLElement> {
+async function createMeaningCard(data: MeaningResult): Promise<HTMLElement> {
   const meaningCard = document.createElement("div");
   meaningCard.classList.add("meaning_card");
   const wordTitle = document.createElement("div");
   wordTitle.classList.add("source");
-  wordTitle.textContent = data.source[0].toUpperCase() + data.source.slice(1);
-  const values = data.values;
+  wordTitle.textContent = data.word[0].toUpperCase() + data.word.slice(1);
+  const values = data.meanings;
   let sortedMeaning: { [key: string]: string[] } = {};
   values.forEach(async (word) => {
-    let _type: string = type_map[word.type] || word.type;
+    let _type: string = type_map[word.pos] || word.pos;
     if (!sortedMeaning[_type]) {
       sortedMeaning[_type] = [];
     }
-    sortedMeaning[_type].push(word.meaning);
+    sortedMeaning[_type].push(word.ml.join(", "));
   });
   try {
     const isfav: boolean = await chrome.runtime.sendMessage({
       action: "isfav",
-      word: data.source,
+      word: data.word,
     });
     const fav = document.createElement("button");
     fav.classList.add("fav");
     fav.textContent = isfav ? FAV : NOT_FAV;
     fav.addEventListener("click", async (event) => {
-      await manageFav(event.target as HTMLElement, data.source);
+      await manageFav(event.target as HTMLElement, data.word);
     });
     wordTitle.appendChild(fav);
   } catch (err) {

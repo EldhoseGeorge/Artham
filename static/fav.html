@@ -4,31 +4,30 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
+
+    <link rel="stylesheet" href="favstyle.css" />
   </head>
+
   <body>
     <div class="container">
       <div class="sidebar">
-        <div id="sidebar_head">
-          <div id="delete_all">
-            <button id="btndelete_all">Delete all</button>
-          </div>
-        </div>
         <div class="cont-wordlist" id="words"></div>
+        <button id="btndelete_all" class="hidden">Delete all</button>
       </div>
 
-      <div class="cont-def">
+      <main class="cont-def">
         <div class="meaning_card" id="meaning">
           <div class="source">
             <strong></strong>
           </div>
           <div class="def">
-            <div class="types">Select any word</div>
-            <div clsas="meaningvalues"></div>
+            <div class="types"></div>
+            <div class="meaningvalues"></div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
+
+    <script src="fav.js"></script>
   </body>
-  <script src="./fav.js"></script>
-  <link rel="stylesheet" href="favstyle.css" />
 </html>

@@ -42,6 +42,7 @@ body {
   color: red;
   cursor: pointer;
   border-radius: 20px;
+  width: fit-content;
 }
 #btndelete_all:hover {
   background: rgba(255, 0, 0, 0.1);
@@ -167,4 +168,8 @@ body {
   to {
     opacity: 1;
   }
+}
+
+.hidden {
+  display: none;
 }

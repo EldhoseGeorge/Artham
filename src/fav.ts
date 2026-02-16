@@ -24,6 +24,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     words.map((word) => {
       createWordBlock(word);
     });
+    deleteAllButton?.classList.remove("hidden");
+    console.log(deleteAllButton);
   }
 });
 

@@ -11,6 +11,31 @@ export interface Dictionary {
   data: Word[];
 }
 
+interface Sense {
+  pos: string; // Part of speech, e.g., "adverb"
+  en: string[][]; // English synonyms/variants (array of arrays)
+  ml: string[][]; // Malayalam translations (array of arrays)
+}
+
+export interface FlattenedEntry {
+  word: string;
+  stem: string;
+  heads: [string, number, number, string][];
+}
+export interface MeaningBlock {
+  pos: string;
+  ml: string[];
+}
+export interface MeaningResult {
+  word: string;
+  meanings: MeaningBlock[];
+}
+// Full dictionary entry
+export interface DictionaryEntry {
+  head: string; // The main word / headword
+  senses: Sense[]; // Array of senses
+}
+
 export const type_map: Record<string, string> = {
   "{n}": "നാമം",
   "{v}": "ക്രിയ",
