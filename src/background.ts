@@ -10,7 +10,6 @@ import {
 const DB_NAME: string = "db_dictionary";
 const OBJECT_STORE_NAME: string = "engmal";
 const FLATTENED_OBJECT_STORE_NAME: string = "engmal_flat";
-const FAV_OBJECT_STORE_NAME = "fav";
 const DB_VERSION: number = 1;
 const TOP_N = 5;
 const FUZZY_THRESHOLD = 0.4;
@@ -136,10 +135,7 @@ async function DBinit(event: IDBVersionChangeEvent) {
     db.deleteObjectStore(OBJECT_STORE_NAME);
     console.log("Deleted existing object store:", OBJECT_STORE_NAME);
   }
-  if (db.objectStoreNames.contains(FAV_OBJECT_STORE_NAME)) {
-    db.deleteObjectStore(FAV_OBJECT_STORE_NAME);
-    console.log("Deleted existing object store:", FAV_OBJECT_STORE_NAME);
-  }
+
   if (db.objectStoreNames.contains(FLATTENED_OBJECT_STORE_NAME)) {
     db.deleteObjectStore(FLATTENED_OBJECT_STORE_NAME);
     console.log("Deleted existing object store:", FLATTENED_OBJECT_STORE_NAME);
@@ -195,27 +191,6 @@ async function DBinit(event: IDBVersionChangeEvent) {
     console.error("Error during database initialization:", e);
   }
   console.log("Database initialization completed");
-}
-
-async function isFavWord(word: string): Promise<boolean> {
-  return withStore<Word>(FAV_OBJECT_STORE_NAME, "readonly", (store) =>
-    store.get(word),
-  ).then((result) => !!result);
-}
-
-async function removeFav(word: string): Promise<boolean> {
-  return withStore<undefined>(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
-    store.delete(word),
-  ).then(() => false);
-}
-
-async function addFav(word: string): Promise<boolean> {
-  return withStore(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
-    store.put({
-      word: word,
-      time: Date.now(),
-    }),
-  ).then(() => true);
 }
 
 async function queryDictionaryByWordRange(
@@ -295,6 +270,7 @@ async function selectHeads(
     });
     const searchHead = heads[0][0];
     const WordIndex = Math.max(Number(heads[0][2]), 0);
+    const meaningIndex = Math.max(Number(heads[0][1]), 0);
     const WordPOS = heads[0][3];
     console.log("Selected head:", searchHead);
     const headData = await getHead(searchHead);
@@ -309,7 +285,7 @@ async function selectHeads(
           })
           .map((sense) => ({
             pos: sense.pos,
-            ml: sense.ml.flat().slice(WordIndex, WordIndex + 10),
+            ml: sense.ml[meaningIndex].flat().slice(WordIndex, WordIndex + 10),
           })),
       };
       result.push(_temp);
@@ -367,28 +343,6 @@ async function queryDictionaryByword(
       console.error("Error fetching word:", err);
       return [];
     });
-}
-async function getFavWords(lastWord: string): Promise<string[]> {
-  try {
-    const db = await getDB();
-    const tx = db.transaction(FAV_OBJECT_STORE_NAME, "readonly");
-    const store = tx.objectStore(FAV_OBJECT_STORE_NAME);
-    const bound = IDBKeyRange.lowerBound(lastWord, true);
-    return new Promise<string[]>((resolve, reject) => {
-      const request = store.getAllKeys(bound, RANGE_LIMIT);
-
-      request.onsuccess = () => {
-        resolve(request.result as string[]);
-      };
-
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
-  } catch (e) {
-    console.error("Error fetching favorite words:", e);
-    return [];
-  }
 }
 
 async function queryDictionary(_word: string): Promise<MeaningResult[] | []> {
@@ -480,18 +434,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
   }
 });
-chrome.runtime.onMessage.addListener(
-  (request: { action: string }, sender, sendResponse) => {
-    if (request.action == "deleteAllFav") {
-      (async () => {
-        await withStore(FAV_OBJECT_STORE_NAME, "readwrite", (store) =>
-          store.clear(),
-        );
-        sendResponse(true);
-      })();
-    }
-  },
-);
+
 chrome.runtime.onMessage.addListener(
   (request: { action: string; word: string }, sender, sendResponse) => {
     if (request.action === "getMeaning") {
@@ -500,40 +443,6 @@ chrome.runtime.onMessage.addListener(
         sendResponse(res);
       })();
       return true; // Indicates that the response will be sent asynchronously
-    } else if (request.action == "isfav") {
-      (async () => {
-        const res = await isFavWord(request.word);
-        sendResponse(res);
-      })();
-      return true;
-    } else if (request.action == "fav") {
-      (async () => {
-        const isfav = await isFavWord(request.word);
-        console.log(isfav);
-        if (isfav) {
-          const res = await removeFav(request.word);
-
-          sendResponse(res);
-        } else {
-          const res = await addFav(request.word);
-
-          sendResponse(res);
-        }
-      })();
-      return true;
-    } else if (request.action == "getFavWords") {
-      (async () => {
-        const lastword: string = request.word.toLowerCase().trim();
-        const favWords: string[] = await getFavWords(lastword);
-        sendResponse(favWords);
-      })();
-      return true;
-    } else if (request.action === "removeFav") {
-      (async () => {
-        const res = await removeFav(request.word);
-        sendResponse(res);
-      })();
-      return true;
     }
     {
       return false; // Unrecognized action

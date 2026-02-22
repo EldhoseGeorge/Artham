@@ -1,6 +1,4 @@
 import { MeaningResult, type_map } from "./types";
-const FAV: string = "❤️";
-const NOT_FAV: string = "🩶";
 window.document.addEventListener("DOMContentLoaded", () => {
   const url = new URL(window.location.href);
   const data = url.searchParams.get("data");
@@ -17,16 +15,7 @@ window.document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
-function manageFav(item: HTMLElement, _word: string): void {
-  const response: Promise<boolean> = chrome.runtime.sendMessage({
-    action: "fav",
-    word: _word,
-  });
-  response.then((status) => {
-    console.log(status);
-    item.textContent = status ? FAV : NOT_FAV;
-  });
-}
+
 async function createMeaningCard(data: MeaningResult): Promise<HTMLElement> {
   const meaningCard = document.createElement("div");
   meaningCard.classList.add("meaning_card");
@@ -42,21 +31,7 @@ async function createMeaningCard(data: MeaningResult): Promise<HTMLElement> {
     }
     sortedMeaning[_type].push(word.ml.join(", "));
   });
-  try {
-    const isfav: boolean = await chrome.runtime.sendMessage({
-      action: "isfav",
-      word: data.word,
-    });
-    const fav = document.createElement("button");
-    fav.classList.add("fav");
-    fav.textContent = isfav ? FAV : NOT_FAV;
-    fav.addEventListener("click", async (event) => {
-      await manageFav(event.target as HTMLElement, data.word);
-    });
-    wordTitle.appendChild(fav);
-  } catch (err) {
-    console.error(err);
-  }
+
   meaningCard.appendChild(wordTitle);
   for (const _type in sortedMeaning) {
     const def = document.createElement("div");
