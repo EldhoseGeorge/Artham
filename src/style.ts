@@ -34,13 +34,13 @@ style.textContent = `
   background: rgba(0, 0, 0, 0.4);
 }
 
-.fav {
+.closebutton {
   background-color: transparent;
   border: none;
   color: black;
-  text-align: center;
+  text-align: right;
   cursor: pointer; /* optional: shows pointer on hover */
-  padding: 0; /* optional: remove default button padding */
+  padding: 10px; /* optional: remove default button padding */
 }
 .wordblock{
    margin-bottom: 10px;
