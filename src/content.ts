@@ -2,8 +2,6 @@ import { stem } from "./stemmer";
 import { style } from "./style";
 import { MeaningResult, type_map } from "./types";
 const tooltipID = "dictionary-tooltip";
-const FAV: string = "❤️";
-const NOT_FAV: string = "🩶";
 
 function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   const block = document.createElement("div");
@@ -28,17 +26,6 @@ function createWorldBlock(type: string, meanings: string[]): HTMLElement {
   return block;
 }
 
-function manageFav(item: HTMLElement, _word: string): void {
-  const response: Promise<boolean> = chrome.runtime.sendMessage({
-    action: "fav",
-    word: _word,
-  });
-  response.then((status) => {
-    console.log(status);
-    item.textContent = status ? FAV : NOT_FAV;
-  });
-}
-
 function createTooltip(data: MeaningResult): HTMLElement {
   const tooltip = document.createElement("div");
   tooltip.classList.add("tooltip");
@@ -50,19 +37,7 @@ function createTooltip(data: MeaningResult): HTMLElement {
   word.classList.add("word");
 
   WordTItle.appendChild(word);
-  const response: Promise<boolean> = chrome.runtime.sendMessage({
-    action: "isfav",
-    word: data.word,
-  });
-  response.then((isfav) => {
-    const fav = document.createElement("button");
-    fav.classList.add("fav");
-    fav.textContent = isfav ? FAV : NOT_FAV;
-    fav.addEventListener("click", (event) => {
-      manageFav(event.target as HTMLElement, data.word);
-    });
-    WordTItle.appendChild(fav);
-  });
+
   tooltip.appendChild(WordTItle);
   let sortedMeaning: { [key: string]: string[] } = {};
 
@@ -118,6 +93,18 @@ async function ShowMeaning(selection: Selection) {
       tooltipdiv.id = "tooltipdiv";
       const shadow = container.attachShadow({ mode: "open" });
       shadow.appendChild(style);
+      const close = document.createElement("button");
+      close.classList.add("closebutton");
+      close.textContent = "×";
+
+      close.addEventListener("click", () => {
+        const existingtooltip = document.getElementById(tooltipID);
+        if (existingtooltip) {
+          selection.removeAllRanges();
+          existingtooltip.remove();
+        }
+      });
+      tooltipdiv.appendChild(close);
       for (const result of results) {
         const tooltip = createTooltip(result);
         tooltipdiv.appendChild(tooltip);
@@ -127,8 +114,28 @@ async function ShowMeaning(selection: Selection) {
       document.body.appendChild(container);
       if (selection.rangeCount > 0) {
         const rect = selection.getRangeAt(0).getBoundingClientRect();
-        tooltipdiv.style.left = `${rect.left}px`;
-        tooltipdiv.style.top = `${rect.bottom + window.scrollY}px`;
+        const tooltipWidth = tooltipdiv.offsetWidth;
+        const tooltipHeight = tooltipdiv.offsetHeight;
+
+        let left = rect.left - tooltipWidth - 10;
+        if (left < 8) {
+          left = rect.right + 10;
+        }
+        left = Math.min(
+          Math.max(8, left),
+          Math.max(8, window.innerWidth - tooltipWidth - 8),
+        );
+
+        let top = window.scrollY + rect.top;
+        if (top + tooltipHeight > window.scrollY + window.innerHeight - 8) {
+          top = Math.max(
+            8,
+            window.scrollY + window.innerHeight - tooltipHeight - 8,
+          );
+        }
+
+        tooltipdiv.style.left = `${left}px`;
+        tooltipdiv.style.top = `${top}px`;
       }
     }
   } catch (e) {

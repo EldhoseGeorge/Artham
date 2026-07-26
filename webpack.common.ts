@@ -9,7 +9,6 @@ const config: webpack.Configuration = {
     popup: path.resolve(__dirname, "src/popup.ts"),
     stemmer: path.resolve(__dirname, "src/stemmer.ts"),
     style: path.resolve(__dirname, "src/style.ts"),
-    fav: path.resolve(__dirname, "src/fav.ts"),
     popup_meaning: path.resolve(__dirname, "src/popup_meaning.ts"),
   },
 
