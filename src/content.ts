@@ -114,8 +114,28 @@ async function ShowMeaning(selection: Selection) {
       document.body.appendChild(container);
       if (selection.rangeCount > 0) {
         const rect = selection.getRangeAt(0).getBoundingClientRect();
-        tooltipdiv.style.left = `${rect.left}px`;
-        tooltipdiv.style.top = `${rect.bottom + window.scrollY}px`;
+        const tooltipWidth = tooltipdiv.offsetWidth;
+        const tooltipHeight = tooltipdiv.offsetHeight;
+
+        let left = rect.left - tooltipWidth - 10;
+        if (left < 8) {
+          left = rect.right + 10;
+        }
+        left = Math.min(
+          Math.max(8, left),
+          Math.max(8, window.innerWidth - tooltipWidth - 8),
+        );
+
+        let top = window.scrollY + rect.top;
+        if (top + tooltipHeight > window.scrollY + window.innerHeight - 8) {
+          top = Math.max(
+            8,
+            window.scrollY + window.innerHeight - tooltipHeight - 8,
+          );
+        }
+
+        tooltipdiv.style.left = `${left}px`;
+        tooltipdiv.style.top = `${top}px`;
       }
     }
   } catch (e) {

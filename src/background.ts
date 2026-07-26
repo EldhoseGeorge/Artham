@@ -17,6 +17,7 @@ const MIN_LENGTH = 6;
 const RANGE_LIMIT = 50;
 let POPUP_WINDOW_ID: number | undefined = undefined;
 let DB_INSTANCE: IDBDatabase | null = null;
+let DB_PROMISE: Promise<IDBDatabase> | null = null;
 
 async function flushBatch<T>(
   batch: T[],
@@ -98,39 +99,60 @@ async function withStore<T>(
 }
 
 function getDB(): Promise<IDBDatabase> {
-  //a singleton class to return the db instance
-  return new Promise((resolve, reject) => {
+  // Return the cached promise so all concurrent callers share one connection
+  if (DB_PROMISE) return DB_PROMISE;
+
+  DB_PROMISE = new Promise((resolve, reject) => {
     if (DB_INSTANCE) {
       resolve(DB_INSTANCE);
-    } else {
-      const request: IDBOpenDBRequest = indexedDB.open(DB_NAME, DB_VERSION);
-      request.onupgradeneeded = (event) => {
-        DBinit(event);
-      };
-      request.onblocked = () => {
-        console.log("db upgrade blocked");
-      };
-      request.onsuccess = (event) => {
-        DB_INSTANCE = request.result;
-
-        DB_INSTANCE.onclose = () => (DB_INSTANCE = null);
-        resolve(DB_INSTANCE);
-      };
-      request.onerror = (event) => {
-        console.error(
-          "Database error:",
-          (event?.target as IDBOpenDBRequest)?.error?.message,
-        );
-        DB_INSTANCE = null;
-        reject((event?.target as IDBOpenDBRequest)?.error?.message);
-      };
+      return;
     }
+
+    let needsPopulation = false;
+    const request: IDBOpenDBRequest = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = (event) => {
+      needsPopulation = true;
+      initSchema(event);
+    };
+    request.onblocked = () => {
+      console.log("db upgrade blocked");
+    };
+    request.onsuccess = async () => {
+      DB_INSTANCE = request.result;
+
+      DB_INSTANCE.onclose = () => {
+        DB_INSTANCE = null;
+        DB_PROMISE = null;
+      };
+
+      if (needsPopulation) {
+        await populateDB(DB_INSTANCE);
+      }
+
+      resolve(DB_INSTANCE);
+    };
+    request.onerror = (event) => {
+      console.error(
+        "Database error:",
+        (event?.target as IDBOpenDBRequest)?.error?.message,
+      );
+      DB_INSTANCE = null;
+      DB_PROMISE = null;
+      reject((event?.target as IDBOpenDBRequest)?.error?.message);
+    };
   });
+  return DB_PROMISE;
 }
 
-async function DBinit(event: IDBVersionChangeEvent) {
-  console.log("Initializing database:", DB_NAME);
+/**
+ * Synchronous schema creation — safe to run inside onupgradeneeded.
+ * Only creates/deletes object stores and indices. No async work.
+ */
+function initSchema(event: IDBVersionChangeEvent) {
+  console.log("Initializing database schema:", DB_NAME);
   const db = (event.target as IDBOpenDBRequest).result;
+
   if (db.objectStoreNames.contains(OBJECT_STORE_NAME)) {
     db.deleteObjectStore(OBJECT_STORE_NAME);
     console.log("Deleted existing object store:", OBJECT_STORE_NAME);
@@ -142,10 +164,10 @@ async function DBinit(event: IDBVersionChangeEvent) {
   }
 
   console.log("Creating object store:", OBJECT_STORE_NAME);
-  const objectStore: IDBObjectStore = db.createObjectStore(OBJECT_STORE_NAME, {
+  db.createObjectStore(OBJECT_STORE_NAME, {
     keyPath: "head",
   });
-  console.log("created object store:", FLATTENED_OBJECT_STORE_NAME);
+  console.log("Creating object store:", FLATTENED_OBJECT_STORE_NAME);
   const flattenedObjectStore: IDBObjectStore = db.createObjectStore(
     FLATTENED_OBJECT_STORE_NAME,
     {
@@ -155,20 +177,15 @@ async function DBinit(event: IDBVersionChangeEvent) {
 
   console.log("Creating index on 'stem' field");
   flattenedObjectStore.createIndex("stem", "stem", { unique: false });
-  const transactionDone = (transaction: IDBTransaction) => {
-    return new Promise((resolve, reject) => {
-      transaction.oncomplete = () =>
-        resolve("Transaction completed successfully");
-      transaction.onerror = () => reject(transaction.error);
-    });
-  };
-  (async () => {
-    await Promise.all([
-      transactionDone(objectStore.transaction),
-      transactionDone(flattenedObjectStore.transaction),
-    ]);
-  })();
-  console.log("Starting to stream JSON lines into the database");
+  console.log("Database schema initialization completed");
+}
+
+/**
+ * Async data population — runs AFTER the DB has opened successfully.
+ * Safe to fetch, decompress, and write data here.
+ */
+async function populateDB(db: IDBDatabase) {
+  console.log("Starting to populate database with dictionary data");
   try {
     await streamJSONLinesGzip<DictionaryEntry>(
       chrome.runtime.getURL("data/ekkurup.jsonl.gz"),
@@ -187,10 +204,10 @@ async function DBinit(event: IDBVersionChangeEvent) {
         return flushBatch(currentBatch, db, FLATTENED_OBJECT_STORE_NAME);
       },
     );
+    console.log("Database population completed successfully");
   } catch (e) {
-    console.error("Error during database initialization:", e);
+    console.error("Error during database population:", e);
   }
-  console.log("Database initialization completed");
 }
 
 async function queryDictionaryByWordRange(
@@ -265,6 +282,9 @@ async function selectHeads(
 
   for (const entry of data) {
     const heads = entry.heads;
+    if (!heads || heads.length === 0) {
+      continue;
+    }
     heads.sort((a, b) => {
       return a[1] - b[1] || a[2] - b[2];
     });
