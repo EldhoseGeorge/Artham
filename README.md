@@ -1,6 +1,5 @@
 
 
-## README content
 
 # അർത്ഥം
 
@@ -36,7 +35,3 @@ Watch for development:
 npm run start
 ```
 
-If you want, I can also make this into:
-- a shorter GitHub README
-- a polished submission README
-- a one-paragraph developer dashboard summary
