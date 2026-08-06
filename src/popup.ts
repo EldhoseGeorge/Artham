@@ -9,30 +9,36 @@ document.addEventListener("DOMContentLoaded", () => {
   // Fetch and display the domain name of the current tab
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs[0];
-    if (tab && tab.url && domainSpan && form) {
-      try {
-        const url = new URL(tab.url);
+    if (!tab || !tab.url || !domainSpan || !form) {
+      if (form) form.style.display = "none";
+      if (label) label.textContent = "";
+      return;
+    }
 
-        // Check if it's a regular web page (not chrome://, chrome-extension://, etc.)
-        if (url.protocol === "http:" || url.protocol === "https:") {
-          currentDomain = url.hostname.replace(/^www\./, "");
-          domainSpan.textContent = currentDomain;
-          form.style.display = "flex";
+    try {
+      const url = new URL(tab.url);
 
-          // Fetch per-domain setting from storage
-          chrome.storage.local.get(["disabledDomains"], (data) => {
-            const disabledDomains = data.disabledDomains || {};
-            const isDisabled = !disabledDomains[currentDomain];
-            toggle.checked = isDisabled; // checked means enabled
-            if (label) label.textContent = isDisabled ? "ENABLED" : "DISABLED";
-          });
-        } else {
-          form.style.display = "none";
-        }
-      } catch (e) {
-        domainSpan.textContent = "";
+      // Check if it's a regular web page (not chrome://, chrome-extension://, etc.)
+      if (url.protocol === "http:" || url.protocol === "https:") {
+        currentDomain = url.hostname.replace(/^www\./, "");
+        domainSpan.textContent = currentDomain;
+        form.style.display = "flex";
+
+        // Fetch per-domain setting from storage
+        chrome.storage.local.get(["disabledDomains"], (data) => {
+          const disabledDomains = data.disabledDomains || {};
+          const isEnabled = !disabledDomains[currentDomain];
+          toggle.checked = isEnabled; // checked means enabled
+          if (label) label.textContent = isEnabled ? "ENABLED" : "DISABLED";
+        });
+      } else {
+        form.style.display = "none";
         if (label) label.textContent = "";
       }
+    } catch (e) {
+      form.style.display = "none";
+      domainSpan.textContent = "";
+      if (label) label.textContent = "";
     }
   });
 
