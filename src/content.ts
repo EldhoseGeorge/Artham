@@ -1,61 +1,8 @@
 import { stem } from "./stemmer";
 import { style } from "./style";
-import { MeaningResult, type_map } from "./types";
+import { MeaningResult } from "./types";
+import { createTooltip } from "./tooltip";
 const tooltipID = "dictionary-tooltip";
-
-function createWorldBlock(type: string, meanings: string[]): HTMLElement {
-  const block = document.createElement("div");
-  block.classList.add("wordblock");
-
-  const typeLabel = document.createElement("span");
-  typeLabel.textContent = type;
-  typeLabel.classList.add("label");
-
-  block.appendChild(typeLabel);
-  const meaningBloock = document.createElement("div");
-  meaningBloock.classList.add("meaningblock");
-
-  meanings.forEach((meaning) => {
-    const meaningText = document.createElement("span");
-    meaningText.classList.add("meaningtext");
-    meaningText.textContent = meaning + ",";
-
-    meaningBloock.appendChild(meaningText);
-  });
-  block.appendChild(meaningBloock);
-  return block;
-}
-
-function createTooltip(data: MeaningResult): HTMLElement {
-  const tooltip = document.createElement("div");
-  tooltip.classList.add("tooltip");
-  const WordTItle = document.createElement("div");
-  WordTItle.classList.add("wordtitle");
-
-  const word = document.createElement("strong");
-  word.textContent = data.word[0].toUpperCase() + data.word.slice(1);
-  word.classList.add("word");
-
-  WordTItle.appendChild(word);
-
-  tooltip.appendChild(WordTItle);
-  let sortedMeaning: { [key: string]: string[] } = {};
-
-  data.meanings.forEach((word) => {
-    let _type: string = type_map[word.pos] || word.pos;
-    if (!sortedMeaning[_type]) {
-      sortedMeaning[_type] = [];
-    }
-    sortedMeaning[_type].push(word.ml.join(", "));
-  });
-  for (const type in sortedMeaning) {
-    const meanings = sortedMeaning[type];
-    const block = createWorldBlock(type, meanings);
-    tooltip.appendChild(block);
-  }
-
-  return tooltip;
-}
 
 async function ShowMeaning(selection: Selection) {
   if (
