@@ -15,6 +15,7 @@ const TOP_N = 5;
 const FUZZY_THRESHOLD = 0.4;
 const MIN_LENGTH = 6;
 const RANGE_LIMIT = 50;
+const MAX_LEN_IN_RESULT_SET = 3;
 let POPUP_WINDOW_ID: number | undefined = undefined;
 let DB_INSTANCE: IDBDatabase | null = null;
 let DB_PROMISE: Promise<IDBDatabase> | null = null;
@@ -279,36 +280,57 @@ async function selectHeads(
   data: FlattenedEntry[],
 ): Promise<MeaningResult[] | []> {
   const result: MeaningResult[] = [];
+  console.log("Processing select heads:", data);
 
   for (const entry of data) {
-    const heads = entry.heads;
-    if (!heads || heads.length === 0) {
-      continue;
+    const heads = entry.heads ?? [];
+    if (heads.length === 0) continue;
+
+    heads.sort(
+      (a, b) => Number(a[1]) - Number(b[1]) || Number(a[2]) - Number(b[2]),
+    );
+
+    const temp: MeaningResult = {
+      word: entry.word,
+      meanings: [],
+    };
+
+    const selectedHeads = heads.slice(0, MAX_LEN_IN_RESULT_SET);
+
+    for (const head of selectedHeads) {
+      const searchHead = head[0];
+      const wordIndex = Math.max(Number(head[2]), 0);
+      const meaningIndex = Math.max(Number(head[1]), 0);
+      const wordPos = head[3];
+
+      const headData = await getHead(searchHead);
+      if (!headData) continue;
+
+      const filteredSenses =
+        wordPos === "h"
+          ? headData.senses
+          : headData.senses.filter((sense) => sense.pos === wordPos);
+
+      for (const sense of filteredSenses) {
+        const mlRow = Array.isArray(sense.ml?.[meaningIndex])
+          ? sense.ml[meaningIndex].flat()
+          : [];
+
+        const mlBlock = wordIndex > 0 ? mlRow.slice(wordIndex) : mlRow;
+
+        if (mlBlock.length === 0) continue;
+
+        temp.meanings.push({
+          pos: sense.pos,
+          ml: mlBlock,
+        });
+      }
+
+      if (wordPos === "h" && temp.meanings.length > 0) break;
     }
-    heads.sort((a, b) => {
-      return a[1] - b[1] || a[2] - b[2];
-    });
-    const searchHead = heads[0][0];
-    const WordIndex = Math.max(Number(heads[0][2]), 0);
-    const meaningIndex = Math.max(Number(heads[0][1]), 0);
-    const WordPOS = heads[0][3];
-    console.log("Selected head:", searchHead);
-    const headData = await getHead(searchHead);
-    if (headData) {
-      const _temp: MeaningResult = {
-        word: entry.word,
-        meanings: headData.senses
-          .filter((sense) => {
-            const isMatch = sense.pos == WordPOS || WordPOS == "h";
-            console.log(`Checking ${sense.pos} against ${WordPOS}: ${isMatch}`);
-            return isMatch;
-          })
-          .map((sense) => ({
-            pos: sense.pos,
-            ml: sense.ml[meaningIndex].flat().slice(WordIndex, WordIndex + 10),
-          })),
-      };
-      result.push(_temp);
+
+    if (temp.meanings.length > 0) {
+      result.push(temp);
     }
   }
   console.log(result);

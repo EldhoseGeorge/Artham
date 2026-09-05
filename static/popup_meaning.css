@@ -2,79 +2,31 @@
 *::before,
 *::after {
   box-sizing: border-box;
-  /*border: solid 1px red; */
 }
+
 body {
+  margin: 0;
   padding: 10px;
   background: linear-gradient(135deg, #ffffff, #f0f8ff);
   font-family: "Helvetica Neue", "Segoe UI", Helvetica, sans-serif;
   color: #28282b;
-  height: 100%;
   overflow: hidden;
 }
+
 .container {
   display: flex;
-  padding: 20px;
-  max-height: 100vh;
-}
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 30%;
-  margin-bottom: 20px;
-}
-#sidebar_head {
-  display: none;
-  justify-content: space-evenly;
-  margin: 10px;
-}
-
-.cont-wordlist {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  overflow: auto;
-  border-radius: 2%;
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(10px);
-  height: 100%;
+  height: calc(100vh - 20px);
+  min-height: calc(100vh - 20px);
 }
 
 .cont-def {
   display: flex;
   flex-direction: column;
   overflow: auto;
-  flex: 1;
-  align-items: center;
-  padding-bottom: 20px;
-  padding-top: 20px;
-}
-.cont-word {
-  margin: 10px;
-  display: flex;
-  border-radius: 5%;
-  text-align: center;
-
-  width: 90%;
-  min-height: 50px;
-
-  align-items: center;
-  justify-content: center;
-  font-size: larger;
-  font-weight: bold;
-}
-
-.cont-word:hover {
-  background: rgba(255, 255, 255, 0.1);
-  animation: fadein 0.3s ease-in-out;
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  justify-content: space-around;
-  .delete_word {
-    display: block;
-    cursor: pointer;
-  }
+  align-items: stretch;
+  min-height: 0;
+  width: 100%;
+  padding: 20px;
 }
 
 .cont-def::-webkit-scrollbar {
@@ -94,56 +46,18 @@ body {
   background: rgba(0, 0, 0, 0.4);
 }
 
-.meaning_card {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 20px;
-}
-.meaning_card > * {
-  animation: fadein 0.3s ease-in-out;
-}
-.def {
-  display: grid;
-  max-width: 600px;
-  font-size: x-large;
-  gap: 20px;
-  padding: 10px;
+#meaning-container .tooltip {
+  font-size: 1.1rem;
 }
 
-.types {
-  padding: 10px;
-
-  color: rgba(0, 0, 0, 0.6);
-  font-style: italic;
+#meaning-container .word {
+  font-size: 2rem;
 }
 
-.meaningvalues {
-  padding: 10px;
-  padding-left: 50px;
+#meaning-container .label {
+  font-size: 1.05rem;
 }
 
-.source {
-  font-size: xx-large;
-  margin-bottom: 25px;
-  font-weight: bolder;
-  text-align: center;
-  display: flex;
-  justify-content: space-evenly;
-}
-.fav {
-  background-color: transparent;
-  border: none;
-  color: black;
-  text-align: center;
-  cursor: pointer;
-  padding: 0;
-}
-
-@keyframes fadein {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+#meaning-container .meaningtext {
+  font-size: 1.1rem;
 }

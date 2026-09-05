@@ -59,9 +59,47 @@ style.textContent = `
   flex-wrap: wrap;
 }
   .meaningtext{
-     display: block;
-    padding: 2px 5px;
-    margin-bottom: 3px;
+    display: block;
+    padding: 4px 8px;
+    margin: 0 4px 6px 0;
+    border: 1px solid rgba(40, 40, 43, 0.06);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.52);
+    box-shadow: 0 2px 8px rgba(40, 40, 43, 0.06);
+    color: inherit;
+  }
+  .collapsible {
+    display: block;
+    width: 100%;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    line-height: 1.5;
+    max-height: 3em;
+    overflow: hidden;
+    position: relative;
+    padding-right: 1.5em;
+    transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .collapsible::after {
+    content: "+";
+    position: absolute;
+    right: 0;
+    top: 0;
+    font-weight: bold;
+    text-decoration: none;
+    transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .collapsible.active {
+    max-height: 1000px;
+  }
+  .collapsible.active::after {
+    content: "-";
+    transform: rotate(180deg);
   }
  .tooltip{
 display: flex;
